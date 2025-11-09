@@ -1,0 +1,13 @@
+---
+- name: Run HAProxy container
+  docker_container:
+    name: "poc-haproxy"
+    image: haproxy:2.5
+    state: started
+    restart_policy: always
+    network_mode: host
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+      - "8008:8008"
+# Note: Assumes haproxy.cfg is pre-configured on the host to use Patroni REST API for health checks.

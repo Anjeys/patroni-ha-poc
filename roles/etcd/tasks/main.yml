@@ -1,0 +1,18 @@
+---
+- name: Run etcd container on {{ inventory_hostname }}
+  docker_container:
+    name: "poc-etcd-{{ inventory_hostname }}"
+    image: bitnami/etcd:3.5
+    state: started
+    restart_policy: always
+    network_mode: host
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://{{ ansible_host }}:2379"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+      ETCD_NAME: "{{ inventory_hostname }}"
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: "http://{{ ansible_host }}:2380"
+      ETCD_LISTEN_PEER_URLS: "http://0.0.0.0:2380"
+      ETCD_INITIAL_CLUSTER: "node1=http://192.168.1.101:2380,node2=http://192.168.1.102:2380,node3=http://192.168.1.103:2380"
+      ETCD_INITIAL_CLUSTER_STATE: "new"
+      ETCD_INITIAL_CLUSTER_TOKEN: "ufst-poc-token"

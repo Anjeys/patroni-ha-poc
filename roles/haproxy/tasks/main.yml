@@ -1,4 +1,15 @@
 ---
+- name: Ensure HAProxy config directory exists
+  file:
+    path: /etc/haproxy
+    state: directory
+
+- name: Deploy HAProxy configuration
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+  notify: Restart HAProxy
+
 - name: Run HAProxy container
   docker_container:
     name: "poc-haproxy"
@@ -6,8 +17,9 @@
     state: started
     restart_policy: always
     network_mode: host
+    volumes:
+      - /etc/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:
       - "5000:5000"
       - "5001:5001"
-      - "8008:8008"
-# Note: Assumes haproxy.cfg is pre-configured on the host to use Patroni REST API for health checks.
+      - "7000:7000"

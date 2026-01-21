@@ -1,12 +1,22 @@
 ---
-- name: Run Patroni container on {{ inventory_hostname }}
+- name: Create PostgreSQL data directory on host
+  file:
+    path: /var/lib/postgresql/data
+    state: directory
+    mode: '0700'
+    owner: "999"  # <--- В кавычках!
+    group: "999"  # <--- В кавычках!
+
+- name: Run Patroni container
   docker_container:
     name: "poc-pg-node-{{ inventory_hostname }}"
     image: zalando/patroni:2.1.4-alpine
     state: started
     restart_policy: always
     network_mode: host
-    environment:
+    volumes:
+      - /var/lib/postgresql/data:/home/postgres/pgdata
+    env:
       PATRONI_NAME: "{{ inventory_hostname }}"
       PATRONI_SCOPE: "ufst_pg_cluster"
       PATRONI_ETCD3_HOSTS: "192.168.1.101:2379,192.168.1.102:2379,192.168.1.103:2379"
@@ -15,5 +25,7 @@
       PATRONI_REPLICATION_USERNAME: "replicator"
       PATRONI_REPLICATION_PASSWORD: "ReplicatorPassword456!"
       PATRONI_POSTGRESQL_LISTEN: "0.0.0.0:5432"
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: "{{ ansible_host }}:5432"
       PATRONI_RESTAPI_LISTEN: "0.0.0.0:8008"
+      PATRONI_RESTAPI_CONNECT_ADDRESS: "{{ ansible_host }}:8008"
       PATRONI_POSTGRESQL_DATA_DIR: "/home/postgres/pgdata"

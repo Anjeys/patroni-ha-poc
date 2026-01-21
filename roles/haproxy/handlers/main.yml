@@ -1,0 +1,6 @@
+---
+- name: Restart HAProxy
+  docker_container:
+    name: "poc-haproxy"
+    state: started
+    restart: yes

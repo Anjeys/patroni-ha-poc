@@ -1,15 +1,17 @@
 ---
-# Плей для кластера баз данных (etcd + Patroni)
-- name: Setup PostgreSQL HA Cluster (etcd + Patroni)
-  hosts: etcd_nodes                          # Запускаем только на 3-х нодах
-  become: yes                                # Выполняем с правами root (sudo)
-  roles:
-    - etcd                                   # Сначала ставим etcd (кворум)
-    - patroni                                # Затем ставим Patroni и PostgreSQL
-
-# Плей для балансировщика
-- name: Setup HAProxy and PgBouncer
-  hosts: balancer                            # Запускаем только на балансировщике
+# Плей для кластера баз данных (БД)
+- name: Setup PostgreSQL HA Cluster
+  hosts: etcd_nodes
   become: yes
   roles:
-    - balancer                               # Применяем логику роутинга
+    - etcd
+    - patroni
+    - pgbackrest       # Настраивает отправку WAL-логов на backup-сервер
+
+# Плей для балансировщика и хранилища бекапов
+- name: Setup Balancer and Backup Repo
+  hosts: balancer
+  become: yes
+  roles:
+    - balancer         # Настраивает HAProxy / PgBouncer
+    - pgbackrest       # Настраивает локальный репозиторий для хранения архивов

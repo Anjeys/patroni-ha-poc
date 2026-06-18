@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  node1:
+    build: .
+    container_name: node1
+    hostname: node1
+    volumes:
+      - pgdata1:/var/lib/postgresql        # Монтируем том для данных БД
+    networks:
+      - patroni_net
+
+  node2:
+    build: .
+    container_name: node2
+    hostname: node2
+    volumes:
+      - pgdata2:/var/lib/postgresql        # У каждой ноды свой независимый диск
+    networks:
+      - patroni_net
+
+  node3:
+    build: .
+    container_name: node3
+    hostname: node3
+    volumes:
+      - pgdata3:/var/lib/postgresql
+    networks:
+      - patroni_net
+
+  balancer:
+    build: .
+    container_name: balancer
+    hostname: balancer
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    volumes:
+      - backup_data:/var/lib/pgbackrest    # Том для хранения бекапов и WAL архивов
+    networks:
+      - patroni_net
+
+networks:
+  patroni_net:
+    driver: bridge
+
+volumes:                                   # Объявляем сами тома на уровне compose
+  pgdata1:
+  pgdata2:
+  pgdata3:
+  backup_data:                             # Физически это будет лежать в недрах WSL2 (/var/lib/docker/volumes/)

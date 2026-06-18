@@ -1,17 +1,18 @@
 ---
-# Плей для кластера баз данных (БД)
+# Плей для узлов баз данных
 - name: Setup PostgreSQL HA Cluster
   hosts: etcd_nodes
   become: yes
   roles:
-    - etcd
-    - patroni
-    - pgbackrest       # Настраивает отправку WAL-логов на backup-сервер
+    - etcd             # 1. Поднимаем кворум
+    - patroni          # 2. Поднимаем БД и связываем с кворумом
+    - pgbackrest       # 3. Настраиваем отправку WAL логов
 
-# Плей для балансировщика и хранилища бекапов
-- name: Setup Balancer and Backup Repo
-  hosts: balancer
+# Плей для сервера доступа и бекапов
+- name: Setup Access Layer and Backup Repo
+  hosts: balancers
   become: yes
   roles:
-    - balancer         # Настраивает HAProxy / PgBouncer
-    - pgbackrest       # Настраивает локальный репозиторий для хранения архивов
+    - haproxy          # 1. L4 Роутинг (ищет Master-ноду через Patroni API)
+    - pgbouncer        # 2. Пул соединений (слушает запросы и кидает их в HAProxy)
+    - pgbackrest       # 3. Репозиторий хранения бекапов

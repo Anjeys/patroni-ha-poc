@@ -5,8 +5,15 @@ services:
     build: .
     container_name: node1
     hostname: node1
+    privileged: true
+    cgroup: host                               # <--- ТВОЯ НАХОДКА ИЗ STACKOVERFLOW
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     volumes:
-      - pgdata1:/var/lib/postgresql        # Монтируем том для данных БД
+      - pgdata1:/var/lib/postgresql
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       - patroni_net
 
@@ -14,8 +21,15 @@ services:
     build: .
     container_name: node2
     hostname: node2
+    privileged: true
+    cgroup: host                               # <--- ТВОЯ НАХОДКА ИЗ STACKOVERFLOW
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     volumes:
-      - pgdata2:/var/lib/postgresql        # У каждой ноды свой независимый диск
+      - pgdata2:/var/lib/postgresql
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       - patroni_net
 
@@ -23,8 +37,15 @@ services:
     build: .
     container_name: node3
     hostname: node3
+    privileged: true
+    cgroup: host                               # <--- ТВОЯ НАХОДКА ИЗ STACKOVERFLOW
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     volumes:
       - pgdata3:/var/lib/postgresql
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       - patroni_net
 
@@ -32,11 +53,18 @@ services:
     build: .
     container_name: balancer
     hostname: balancer
+    privileged: true
+    cgroup: host                               # <--- ТВОЯ НАХОДКА ИЗ STACKOVERFLOW
     ports:
       - "5000:5000"
       - "5001:5001"
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     volumes:
-      - backup_data:/var/lib/pgbackrest    # Том для хранения бекапов и WAL архивов
+      - backup_data:/var/lib/pgbackrest
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       - patroni_net
 
@@ -44,8 +72,8 @@ networks:
   patroni_net:
     driver: bridge
 
-volumes:                                   # Объявляем сами тома на уровне compose
+volumes:
   pgdata1:
   pgdata2:
   pgdata3:
-  backup_data:                             # Физически это будет лежать в недрах WSL2 (/var/lib/docker/volumes/)
+  backup_data:

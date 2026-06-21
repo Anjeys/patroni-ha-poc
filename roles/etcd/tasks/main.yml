@@ -1,2 +1,18 @@
 ---
-# tasks file for roles/etcd
+- name: Установка пакета etcd
+  apt:
+    name: etcd
+    state: present
+    update_cache: yes                          # аналогично apt update
+
+- name: Накатываем конфигурацию etcd
+  template:
+    src: etcd.j2                               # берем шаблон (создадим ниже)
+    dest: /etc/default/etcd                    # в Ubuntu конфиг etcd лежит тут
+  notify: Restart etcd                         # дергаем хендлер, если файл изменился
+
+- name: Запуск сервиса etcd
+  systemd:
+    name: etcd
+    state: started
+    enabled: yes                               # автозагрузка

@@ -1,20 +1,13 @@
-# Имя текущей ноды (node1, node2 или node3)
 ETCD_NAME="{{ inventory_hostname }}"
-
-# Где лежат данные
 ETCD_DATA_DIR="/var/lib/etcd/default.etcd"
 
-# Слушаем другие ноды etcd (2380) и запросы от Patroni (2379) на всех интерфейсах
 ETCD_LISTEN_PEER_URLS="http://0.0.0.0:2380"
 ETCD_LISTEN_CLIENT_URLS="http://0.0.0.0:2379"
 
-# Какие адреса мы анонсируем кластеру (наш реальный IP в докере)
 ETCD_INITIAL_ADVERTISE_PEER_URLS="http://{{ ansible_default_ipv4.address }}:2380"
 ETCD_ADVERTISE_CLIENT_URLS="http://{{ ansible_default_ipv4.address }}:2379"
 
-# --- МАГИЯ ANSIBLE ---
-# Цикл собирает строку: node1=http://172.x.x.x:2380,node2=http://172.x.x.y:2380...
 ETCD_INITIAL_CLUSTER="{% for host in groups['etcd_nodes'] %}{{ host }}=http://{{ hostvars[host]['ansible_default_ipv4']['address'] }}:2380{% if not loop.last %},{% endif %}{% endfor %}"
 
-ETCD_INITIAL_CLUSTER_STATE="new"               # Флаг нового кластера
-ETCD_INITIAL_CLUSTER_TOKEN="patroni-cluster"   # Уникальный токен
+ETCD_INITIAL_CLUSTER_STATE="new"
+ETCD_INITIAL_CLUSTER_TOKEN="patroni-cluster"

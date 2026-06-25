@@ -34,6 +34,11 @@ postgresql:
     superuser:
       username: postgres
       password: super_password
+  pg_hba:
+    - local   all             all                                     trust
+    - host    all             all             127.0.0.1/32            trust
+    - host    all             all             172.18.0.0/16           md5
+    - host    replication     replicator      172.18.0.0/16           md5
   parameters:
     max_connections: 100
     wal_level: replica

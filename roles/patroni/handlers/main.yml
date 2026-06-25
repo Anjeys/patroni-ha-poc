@@ -1,2 +1,5 @@
 ---
-# handlers file for roles/patroni
+- name: Restart Patroni
+  systemd:
+    name: patroni
+    state: restarted

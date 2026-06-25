@@ -1,2 +1,33 @@
 ---
-# tasks file for roles/patroni
+- name: Установка PostgreSQL и Patroni
+  apt:
+    name:
+      - postgresql
+      - patroni
+      - python3-psycopg2
+    state: present
+
+- name: Остановка и отключение дефолтного сервиса PostgreSQL
+  systemd:
+    name: postgresql
+    state: stopped
+    enabled: no
+
+- name: Удаление дефолтного кластера базы данных
+  file:
+    path: /var/lib/postgresql/14/main
+    state: absent
+
+- name: Накатываем конфигурацию Patroni
+  template:
+    src: patroni.yml.j2
+    dest: /etc/patroni/config.yml              # <--- ИСПРАВЛЕНО (под стандарт Ubuntu)
+    owner: postgres                            # <--- ИСПРАВЛЕНО (Юнит запускается от postgres)
+    group: postgres
+  notify: Restart Patroni
+
+- name: Запуск сервиса Patroni
+  systemd:
+    name: patroni
+    state: started
+    enabled: yes

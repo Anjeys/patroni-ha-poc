@@ -1,0 +1,16 @@
+[databases]
+* = host=127.0.0.1 port=5000
+
+[pgbouncer]
+listen_addr = 0.0.0.0
+listen_port = 6432
+auth_type = md5
+auth_file = /etc/pgbouncer/userlist.txt
+admin_users = postgres
+logfile = /var/log/postgresql/pgbouncer.log
+pidfile = /var/run/postgresql/pgbouncer.pid
+user = postgres
+pool_mode = transaction
+max_client_conn = 500
+default_pool_size = 20
+reserve_pool_size = 5

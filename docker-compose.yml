@@ -6,7 +6,7 @@ services:
     container_name: node1
     hostname: node1
     privileged: true
-    cgroup: host                               # <--- ТВОЯ НАХОДКА ИЗ STACKOVERFLOW
+    cgroup: host
     tmpfs:
       - /run
       - /run/lock
@@ -15,14 +15,15 @@ services:
       - pgdata1:/var/lib/postgresql
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
-      - patroni_net
+      patroni_net:
+        ipv4_address: 172.18.0.2            # <--- По порядку
 
   node2:
     build: .
     container_name: node2
     hostname: node2
     privileged: true
-    cgroup: host                               # <--- ТВОЯ НАХОДКА ИЗ STACKOVERFLOW
+    cgroup: host
     tmpfs:
       - /run
       - /run/lock
@@ -31,14 +32,15 @@ services:
       - pgdata2:/var/lib/postgresql
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
-      - patroni_net
+      patroni_net:
+        ipv4_address: 172.18.0.3            # <--- По порядку
 
   node3:
     build: .
     container_name: node3
     hostname: node3
     privileged: true
-    cgroup: host                               # <--- ТВОЯ НАХОДКА ИЗ STACKOVERFLOW
+    cgroup: host
     tmpfs:
       - /run
       - /run/lock
@@ -47,17 +49,19 @@ services:
       - pgdata3:/var/lib/postgresql
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
-      - patroni_net
+      patroni_net:
+        ipv4_address: 172.18.0.4            # <--- По порядку
 
   balancer:
     build: .
     container_name: balancer
     hostname: balancer
     privileged: true
-    cgroup: host                               # <--- ТВОЯ НАХОДКА ИЗ STACKOVERFLOW
+    cgroup: host
     ports:
       - "5000:5000"
       - "5001:5001"
+      - "6432:6432"
     tmpfs:
       - /run
       - /run/lock
@@ -66,11 +70,15 @@ services:
       - backup_data:/var/lib/pgbackrest
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
-      - patroni_net
+      patroni_net:
+        ipv4_address: 172.18.0.5            # <--- Замыкает цепь
 
 networks:
   patroni_net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16             # <--- Твоя родная подсеть
 
 volumes:
   pgdata1:

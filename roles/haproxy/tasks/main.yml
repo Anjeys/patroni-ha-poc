@@ -1,2 +1,17 @@
 ---
-# tasks file for roles/haproxy
+- name: Установка пакета HAProxy
+  apt:
+    name: haproxy
+    state: present
+
+- name: Накатываем конфигурацию HAProxy
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+  notify: Restart HAProxy
+
+- name: Запуск сервиса HAProxy
+  systemd:
+    name: haproxy
+    state: started
+    enabled: yes

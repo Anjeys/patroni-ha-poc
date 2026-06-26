@@ -1,2 +1,5 @@
 ---
-# handlers file for roles/pgbouncer
+- name: Restart PgBouncer
+  systemd:
+    name: pgbouncer
+    state: restarted

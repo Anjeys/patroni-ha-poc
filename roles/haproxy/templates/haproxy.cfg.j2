@@ -17,7 +17,7 @@ listen master
     default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
 
     {% for host in groups['etcd_nodes'] %}
-    server {{ host }} {{ hostvars[host]['ansible_default_ipv4']['address'] }}:5432 maxconn 100 check port 8008
+    server {{ host }} {{ hostvars[host]['ansible_host'] }}:5432 maxconn 100 check port 8008
     {% endfor %}
 
 listen replicas
@@ -27,5 +27,5 @@ listen replicas
     default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
 
     {% for host in groups['etcd_nodes'] %}
-    server {{ host }} {{ hostvars[host]['ansible_default_ipv4']['address'] }}:5432 maxconn 100 check port 8008
+    server {{ host }} {{ hostvars[host]['ansible_host'] }}:5432 maxconn 100 check port 8008
     {% endfor %}

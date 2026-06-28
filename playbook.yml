@@ -16,3 +16,47 @@
     - haproxy          # 1. L4 Роутинг (ищет Master-ноду через Patroni API)
     - pgbouncer        # 2. Пул соединений (слушает запросы и кидает их в HAProxy)
     - pgbackrest       # 3. Репозиторий хранения бекапов
+
+# Плей для настройки доверенной сети (Full Mesh SSH)
+- name: Setup SSH Full Mesh for pgBackRest
+  hosts: all
+  become: yes
+  tasks:
+    - name: Убеждаемся, что у пользователя postgres есть папка .ssh
+      file:
+        path: /var/lib/postgresql/.ssh
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: '0700'
+
+    - name: Генерация SSH ключа для пользователя postgres
+      user:
+        name: postgres
+        generate_ssh_key: yes
+        ssh_key_type: rsa
+        ssh_key_file: .ssh/id_rsa
+
+    - name: Отключаем StrictHostKeyChecking для автоматических коннектов
+      copy:
+        dest: /var/lib/postgresql/.ssh/config
+        content: |
+          Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+        owner: postgres
+        group: postgres
+        mode: '0600'
+
+    - name: Скачиваем публичные ключи со всех серверов на машину Ansible
+      fetch:
+        src: /var/lib/postgresql/.ssh/id_rsa.pub
+        dest: /tmp/pg_ssh_keys/{{ inventory_hostname }}.pub
+        flat: yes
+
+    - name: Раздаем ключи всем серверам (Добавляем в authorized_keys)
+      authorized_key:
+        user: postgres
+        state: present
+        key: "{{ lookup('file', '/tmp/pg_ssh_keys/' + item + '.pub') }}"
+      loop: "{{ groups['etcd_nodes'] + groups['balancers'] }}"

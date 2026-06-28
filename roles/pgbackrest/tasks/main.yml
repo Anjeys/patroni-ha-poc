@@ -1,2 +1,28 @@
 ---
-# tasks file for roles/pgbackrest
+- name: Установка пакета pgBackRest
+  apt:
+    name: pgbackrest
+    state: present
+
+# ---- ЛОГИКА ДЛЯ СЕРВЕРА БЕКАПОВ (balancer) ----
+- name: Создание папки для репозитория бекапов
+  file:
+    path: /var/lib/pgbackrest
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0750'
+  when: inventory_hostname in groups['balancers']
+
+- name: Накатываем конфиг для Репозитория (balancer)
+  template:
+    src: pgbackrest-repo.conf.j2
+    dest: /etc/pgbackrest.conf
+  when: inventory_hostname in groups['balancers']
+
+# ---- ЛОГИКА ДЛЯ БАЗ ДАННЫХ (etcd_nodes) ----
+- name: Накатываем конфиг для Баз Данных (клиентов)
+  template:
+    src: pgbackrest-client.conf.j2
+    dest: /etc/pgbackrest.conf
+  when: inventory_hostname in groups['etcd_nodes']

@@ -1,0 +1,19 @@
+[global]
+repo1-path=/var/lib/pgbackrest
+repo1-retention-full=2
+process-max=2
+log-level-console=info
+log-level-file=debug
+
+[main]
+pg1-host={{ hostvars['node1']['ansible_host'] }}
+pg1-path=/var/lib/postgresql/14/main
+pg1-socket-path=/tmp
+
+pg2-host={{ hostvars['node2']['ansible_host'] }}
+pg2-path=/var/lib/postgresql/14/main
+pg2-socket-path=/tmp
+
+pg3-host={{ hostvars['node3']['ansible_host'] }}
+pg3-path=/var/lib/postgresql/14/main
+pg3-socket-path=/tmp

@@ -4,7 +4,7 @@ name: "{{ inventory_hostname }}"
 
 restapi:
   listen: "0.0.0.0:8008"
-  connect_address: "{{ ansible_default_ipv4.address }}:8008"
+  connect_address: "{{ ansible_host }}:8008"
 
 etcd:
   host: "127.0.0.1:2379"
@@ -23,7 +23,7 @@ bootstrap:
 
 postgresql:
   listen: "0.0.0.0:5432"
-  connect_address: "{{ ansible_default_ipv4.address }}:5432"
+  connect_address: "{{ ansible_host }}:5432"
   data_dir: "/var/lib/postgresql/14/main"
   bin_dir: "/usr/lib/postgresql/14/bin"
   pgpass: "/tmp/pgpass"
@@ -42,3 +42,6 @@ postgresql:
   parameters:
     max_connections: 100
     wal_level: replica
+    archive_mode: "on"
+    archive_command: 'pgbackrest --stanza=main archive-push %p'
+    unix_socket_directories: "/tmp"

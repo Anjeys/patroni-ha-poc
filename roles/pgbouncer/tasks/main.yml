@@ -1,32 +1,32 @@
 ---
-- name: Установка пакета PgBouncer
+- name: Install PgBouncer package
   apt:
     name: pgbouncer
     state: present
 
-- name: Накатываем userlist.txt (Пароли)
+- name: Deploy userlist.txt
   template:
     src: userlist.txt.j2
     dest: /etc/pgbouncer/userlist.txt
     owner: postgres
     group: postgres
-    mode: '0600'                               # Файл паролей должен быть скрыт
+    mode: '0600'
   notify: Restart PgBouncer
 
-- name: Накатываем конфигурацию pgbouncer.ini
+- name: Deploy pgbouncer.ini configuration
   template:
     src: pgbouncer.ini.j2
     dest: /etc/pgbouncer/pgbouncer.ini
   notify: Restart PgBouncer
 
-- name: Разрешаем запуск PgBouncer в LSB скрипте
+- name: Allow PgBouncer startup in LSB script
   lineinfile:
     path: /etc/default/pgbouncer
     regexp: '^START='
     line: 'START=1'
     state: present
 
-- name: Запуск сервиса PgBouncer
+- name: Start PgBouncer service
   systemd:
     name: pgbouncer
     state: started

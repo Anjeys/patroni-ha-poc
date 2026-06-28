@@ -16,7 +16,7 @@ services:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       patroni_net:
-        ipv4_address: 172.18.0.2            # <--- По порядку
+        ipv4_address: 172.18.0.2
 
   node2:
     build: .
@@ -33,7 +33,7 @@ services:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       patroni_net:
-        ipv4_address: 172.18.0.3            # <--- По порядку
+        ipv4_address: 172.18.0.3
 
   node3:
     build: .
@@ -50,7 +50,7 @@ services:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       patroni_net:
-        ipv4_address: 172.18.0.4            # <--- По порядку
+        ipv4_address: 172.18.0.4
 
   balancer:
     build: .
@@ -71,14 +71,14 @@ services:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       patroni_net:
-        ipv4_address: 172.18.0.5            # <--- Замыкает цепь
+        ipv4_address: 172.18.0.5
 
 networks:
   patroni_net:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.18.0.0/16             # <--- Твоя родная подсеть
+        - subnet: 172.18.0.0/16
 
 volumes:
   pgdata1:

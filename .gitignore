@@ -1,12 +1,7 @@
-# Секретные ключи для расшифровки Ansible Vault
 .vault_pass
 vault_password_file
-
-# Временные файлы Ansible
 *.retry
 *.pyc
 .ansible/
-
-# Временные файлы ОС
 .DS_Store
 *~

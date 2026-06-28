@@ -1,18 +1,18 @@
 ---
-- name: Установка пакета etcd
+- name: Install etcd package
   apt:
     name: etcd
     state: present
-    update_cache: yes                          # аналогично apt update
+    update_cache: yes
 
-- name: Накатываем конфигурацию etcd
+- name: Deploy etcd configuration
   template:
-    src: etcd.j2                               # берем шаблон (создадим ниже)
-    dest: /etc/default/etcd                    # в Ubuntu конфиг etcd лежит тут
-  notify: Restart etcd                         # дергаем хендлер, если файл изменился
+    src: etcd.j2
+    dest: /etc/default/etcd
+  notify: Restart etcd
 
-- name: Запуск сервиса etcd
+- name: Start etcd service
   systemd:
     name: etcd
     state: started
-    enabled: yes                               # автозагрузка
+    enabled: yes

@@ -1,28 +1,25 @@
 ---
-# Плей для узлов баз данных
 - name: Setup PostgreSQL HA Cluster
   hosts: etcd_nodes
   become: yes
   roles:
-    - etcd             # 1. Поднимаем кворум
-    - patroni          # 2. Поднимаем БД и связываем с кворумом
-    - pgbackrest       # 3. Настраиваем отправку WAL логов
+    - etcd
+    - patroni
+    - pgbackrest
 
-# Плей для сервера доступа и бекапов
 - name: Setup Access Layer and Backup Repo
   hosts: balancers
   become: yes
   roles:
-    - haproxy          # 1. L4 Роутинг (ищет Master-ноду через Patroni API)
-    - pgbouncer        # 2. Пул соединений (слушает запросы и кидает их в HAProxy)
-    - pgbackrest       # 3. Репозиторий хранения бекапов
+    - haproxy
+    - pgbouncer
+    - pgbackrest
 
-# Плей для настройки доверенной сети (Full Mesh SSH)
 - name: Setup SSH Full Mesh for pgBackRest
   hosts: all
   become: yes
   tasks:
-    - name: Убеждаемся, что у пользователя postgres есть папка .ssh
+    - name: Ensure postgres user has .ssh directory
       file:
         path: /var/lib/postgresql/.ssh
         state: directory
@@ -30,14 +27,14 @@
         group: postgres
         mode: '0700'
 
-    - name: Генерация SSH ключа для пользователя postgres
+    - name: Generate SSH key for postgres user
       user:
         name: postgres
         generate_ssh_key: yes
         ssh_key_type: rsa
         ssh_key_file: .ssh/id_rsa
 
-    - name: Отключаем StrictHostKeyChecking для автоматических коннектов
+    - name: Disable StrictHostKeyChecking for automated connections
       copy:
         dest: /var/lib/postgresql/.ssh/config
         content: |
@@ -48,13 +45,13 @@
         group: postgres
         mode: '0600'
 
-    - name: Скачиваем публичные ключи со всех серверов на машину Ansible
+    - name: Fetch public keys from all servers to Ansible control node
       fetch:
         src: /var/lib/postgresql/.ssh/id_rsa.pub
         dest: /tmp/pg_ssh_keys/{{ inventory_hostname }}.pub
         flat: yes
 
-    - name: Раздаем ключи всем серверам (Добавляем в authorized_keys)
+    - name: Distribute keys to all servers
       authorized_key:
         user: postgres
         state: present

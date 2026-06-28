@@ -1,11 +1,10 @@
 ---
-- name: Установка пакета pgBackRest
+- name: Install pgBackRest package
   apt:
     name: pgbackrest
     state: present
 
-# ---- ЛОГИКА ДЛЯ СЕРВЕРА БЕКАПОВ (balancer) ----
-- name: Создание папки для репозитория бекапов
+- name: Create directory for backup repository
   file:
     path: /var/lib/pgbackrest
     state: directory
@@ -14,14 +13,13 @@
     mode: '0750'
   when: inventory_hostname in groups['balancers']
 
-- name: Накатываем конфиг для Репозитория (balancer)
+- name: Deploy configuration for Repository
   template:
     src: pgbackrest-repo.conf.j2
     dest: /etc/pgbackrest.conf
   when: inventory_hostname in groups['balancers']
 
-# ---- ЛОГИКА ДЛЯ БАЗ ДАННЫХ (etcd_nodes) ----
-- name: Накатываем конфиг для Баз Данных (клиентов)
+- name: Deploy configuration for Databases
   template:
     src: pgbackrest-client.conf.j2
     dest: /etc/pgbackrest.conf

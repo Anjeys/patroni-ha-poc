@@ -1,5 +1,5 @@
 ---
-- name: Установка PostgreSQL и Patroni
+- name: Install PostgreSQL and Patroni
   apt:
     name:
       - postgresql
@@ -7,26 +7,26 @@
       - python3-psycopg2
     state: present
 
-- name: Остановка и отключение дефолтного сервиса PostgreSQL
+- name: Stop and disable default PostgreSQL service
   systemd:
     name: postgresql
     state: stopped
     enabled: no
 
-- name: Удаление дефолтного кластера базы данных
+- name: Remove default database cluster
   file:
     path: /var/lib/postgresql/14/main
     state: absent
 
-- name: Накатываем конфигурацию Patroni
+- name: Deploy Patroni configuration
   template:
     src: patroni.yml.j2
-    dest: /etc/patroni/config.yml              # <--- ИСПРАВЛЕНО (под стандарт Ubuntu)
-    owner: postgres                            # <--- ИСПРАВЛЕНО (Юнит запускается от postgres)
+    dest: /etc/patroni/config.yml
+    owner: postgres
     group: postgres
   notify: Restart Patroni
 
-- name: Запуск сервиса Patroni
+- name: Start Patroni service
   systemd:
     name: patroni
     state: started

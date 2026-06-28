@@ -1,16 +1,16 @@
 ---
-- name: Установка пакета HAProxy
+- name: Install HAProxy package
   apt:
     name: haproxy
     state: present
 
-- name: Накатываем конфигурацию HAProxy
+- name: Deploy HAProxy configuration
   template:
     src: haproxy.cfg.j2
     dest: /etc/haproxy/haproxy.cfg
   notify: Restart HAProxy
 
-- name: Запуск сервиса HAProxy
+- name: Start HAProxy service
   systemd:
     name: haproxy
     state: started

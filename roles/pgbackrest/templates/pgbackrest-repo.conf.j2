@@ -1,9 +1,10 @@
 [global]
 repo1-path=/var/lib/pgbackrest
 repo1-retention-full=2
+repo1-retention-archive=2
 process-max=2
 log-level-console=info
-log-level-file=debug
+log-level-file=detail
 
 [main]
 pg1-host={{ hostvars['node1']['ansible_host'] }}

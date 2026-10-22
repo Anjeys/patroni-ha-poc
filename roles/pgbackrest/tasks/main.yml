@@ -24,3 +24,6 @@
     src: pgbackrest-client.conf.j2
     dest: /etc/pgbackrest.conf
   when: inventory_hostname in groups['etcd_nodes']
+
+- name: SSH mesh so archive-push reaches the repository from the first WAL
+  ansible.builtin.include_tasks: mesh.yml

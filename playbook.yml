@@ -4,9 +4,9 @@
   become: true
   roles:
     - pgdg
+    - pgbackrest
     - etcd
     - patroni
-    - pgbackrest
 
 - name: Setup Access Layer and Backup Repo
   hosts: balancers
@@ -17,38 +17,9 @@
     - pgbouncer
     - pgbackrest
 
-- name: SSH mesh for pgBackRest (one key pair, generated on the control node)
-  hosts: all
+
+- name: Backup repository (stanza, first full backup, schedule)
+  hosts: balancers
   become: true
-  tasks:
-    - name: .ssh for postgres
-      ansible.builtin.file:
-        path: /var/lib/postgresql/.ssh
-        state: directory
-        owner: postgres
-        group: postgres
-        mode: "0700"
-
-    - name: Mesh private key
-      ansible.builtin.copy:
-        src: .ssh/pgbackrest_ed25519
-        dest: /var/lib/postgresql/.ssh/id_ed25519
-        owner: postgres
-        group: postgres
-        mode: "0600"
-
-    - name: Mesh public key is authorized everywhere
-      ansible.posix.authorized_key:
-        user: postgres
-        key: "{{ lookup('file', '.ssh/pgbackrest_ed25519.pub') }}"
-
-    - name: Host keys change on every rebuild; the lab network is private
-      ansible.builtin.copy:
-        dest: /var/lib/postgresql/.ssh/config
-        content: |
-          Host *
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-        owner: postgres
-        group: postgres
-        mode: "0600"
+  roles:
+    - pgbackrest_repo

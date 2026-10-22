@@ -1,0 +1,87 @@
+---
+# Runs after the cluster is up. A stanza from a previous cluster (volume kept
+# across a rebuild) fails every archive-push with ArchiveMismatchError, so the
+# stanza is checked against the live system-id and recreated when it differs.
+- name: Wait for a primary behind the load balancer
+  ansible.builtin.command: >-
+    psql -h 127.0.0.1 -p 5000 -U postgres -Atc "select pg_is_in_recovery()"
+  environment:
+    PGPASSWORD: "{{ pg_superuser_password }}"
+  register: pgbackrest_repo_probe
+  until: pgbackrest_repo_probe.rc == 0 and pgbackrest_repo_probe.stdout == "f"
+  retries: 30
+  delay: 5
+  changed_when: false
+
+- name: Stanza status
+  ansible.builtin.command: pgbackrest --stanza=main --output=json info
+  become: true
+  become_user: postgres
+  register: pgbackrest_repo_info
+  changed_when: false
+  failed_when: false
+
+- name: Parse the stanza record (empty list = no stanza yet)
+  ansible.builtin.set_fact:
+    pgbackrest_repo_stanza: >-
+      {{ (pgbackrest_repo_info.stdout | from_json | first)
+         if (pgbackrest_repo_info.rc == 0 and (pgbackrest_repo_info.stdout | from_json | length) > 0)
+         else {} }}
+
+# Through HAProxy: 5000 always lands on the primary, whichever node that is.
+- name: Live system identifier
+  ansible.builtin.command: >-
+    psql -h 127.0.0.1 -p 5000 -U postgres -Atc
+    "select system_identifier from pg_control_system()"
+  environment:
+    PGPASSWORD: "{{ pg_superuser_password }}"
+  register: pgbackrest_repo_sysid
+  changed_when: false
+
+- name: Stanza belongs to another cluster -> drop it
+  ansible.builtin.command: pgbackrest --stanza=main stanza-delete --force
+  become: true
+  become_user: postgres
+  when:
+    - pgbackrest_repo_stanza.db is defined
+    - pgbackrest_repo_stanza.db | length > 0
+    - (pgbackrest_repo_stanza.db | last)['system-id'] | string != pgbackrest_repo_sysid.stdout
+
+# stanza-create is safe to repeat - it exits 0 and says so on stdout - but a
+# task that reports "changed" every run hides the one run that really changed
+# something. The stanza record read above already answers whether it exists.
+- name: Create the stanza
+  ansible.builtin.command: pgbackrest --stanza=main stanza-create
+  become: true
+  become_user: postgres
+  register: pgbackrest_repo_create
+  changed_when: pgbackrest_repo_create.rc == 0 and pgbackrest_repo_stanza.db | default([]) | length == 0
+
+- name: Check archiving end to end
+  ansible.builtin.command: pgbackrest --stanza=main check
+  become: true
+  become_user: postgres
+  changed_when: false
+
+- name: First full backup (only when none exists)
+  ansible.builtin.command: pgbackrest --stanza=main --type=full backup
+  become: true
+  become_user: postgres
+  when: pgbackrest_repo_stanza.backup | default([]) | length == 0
+
+- name: The cron daemon must be running for a schedule to mean anything
+  ansible.builtin.systemd:
+    name: cron
+    state: started
+    enabled: true
+
+- name: Nightly full, hourly incremental
+  ansible.builtin.cron:
+    name: "{{ item.name }}"
+    user: postgres
+    minute: "{{ item.minute }}"
+    hour: "{{ item.hour }}"
+    job: "pgbackrest --stanza=main --type={{ item.type }} backup"
+  loop:
+    - {name: pgbackrest full, type: full, minute: "0", hour: "2"}
+    - {name: pgbackrest incr, type: incr, minute: "15", hour: "*"}

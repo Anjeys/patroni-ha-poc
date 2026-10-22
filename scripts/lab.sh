@@ -7,6 +7,9 @@
 set -Eeuo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+# compose refuses to interpolate without it, even for down/ps
+export SSH_PUBKEY="$(cat .ssh/lab_ed25519.pub 2>/dev/null || echo none)"
+
 keys() {
   mkdir -p .ssh
   [[ -f .ssh/lab_ed25519 ]] || ssh-keygen -q -t ed25519 -N '' -C lab-control -f .ssh/lab_ed25519
@@ -26,7 +29,8 @@ secrets() {
 case "${1:-}" in
   up)
     keys; secrets
-    SSH_PUBKEY="$(cat .ssh/lab_ed25519.pub)" docker compose up -d --build
+    export SSH_PUBKEY="$(cat .ssh/lab_ed25519.pub)"
+    docker compose up -d --build
     # systemd as PID 1 can fail to start (cgroup scope on a tired WSL); a node
     # that is not Up must stop the run here, not as "unreachable" from Ansible.
     sleep 3

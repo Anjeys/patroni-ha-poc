@@ -1,7 +1,9 @@
 [global]
 repo1-host={{ hostvars['balancer']['ansible_host'] }}
 repo1-host-user=postgres
+log-level-console=info
 
 [main]
 pg1-path={{ pg_data_dir }}
 pg1-socket-path=/tmp
+pg1-port=5432

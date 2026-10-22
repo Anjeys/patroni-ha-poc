@@ -20,10 +20,15 @@ etcd3:
 
 bootstrap:
   dcs:
-    ttl: 30
-    loop_wait: 10
-    retry_timeout: 10
-    maximum_lag_on_failover: 1048576
+    # A dead leader is noticed within ttl; the drill measures what that costs.
+    ttl: 15
+    loop_wait: 5
+    retry_timeout: 5
+    # Zero data loss means a commit is on a replica before it is acknowledged,
+    # and a failover never picks a replica that is behind.
+    synchronous_mode: true
+    synchronous_mode_strict: false
+    maximum_lag_on_failover: 0
     postgresql:
       use_pg_rewind: true
       # Cluster-wide parameters live in the DCS: patronictl edit-config changes

@@ -259,7 +259,7 @@ cmd_pitr() {
   # it nothing to disagree with: it takes the key and adopts what it finds.
   log "clearing the cluster state so the restored copy becomes the new truth"
   docker exec "$node" etcdctl --endpoints="http://$(node_ip "$node"):2379" \
-    del --prefix "/db/" >/dev/null
+    del --prefix "/db/${SCOPE}/" >/dev/null
 
   docker exec "$node" systemctl start patroni
 

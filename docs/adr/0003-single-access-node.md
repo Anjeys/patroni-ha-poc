@@ -12,8 +12,8 @@ not. Losing it takes away both the way in and the place backups are written.
 ## Decision
 
 Keep it, and say so. A second access node needs a virtual address and something
-to move it - keepalived, or the platform\'s load balancer - and neither adds
-anything to what this project set out to show: Patroni\'s failover, synchronous
+to move it - keepalived, or the platform's load balancer - and neither adds
+anything to what this project set out to show: Patroni's failover, synchronous
 replication, and recovery from a backup.
 
 ## Consequences

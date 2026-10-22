@@ -8,7 +8,8 @@ set -Eeuo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 # compose refuses to interpolate without it, even for down/ps
-export SSH_PUBKEY="$(cat .ssh/lab_ed25519.pub 2>/dev/null || echo none)"
+SSH_PUBKEY="$(cat .ssh/lab_ed25519.pub 2>/dev/null || echo none)"
+export SSH_PUBKEY
 
 keys() {
   mkdir -p .ssh
@@ -29,7 +30,8 @@ secrets() {
 case "${1:-}" in
   up)
     keys; secrets
-    export SSH_PUBKEY="$(cat .ssh/lab_ed25519.pub)"
+    SSH_PUBKEY="$(cat .ssh/lab_ed25519.pub)"
+    export SSH_PUBKEY
     docker compose up -d --build
     # systemd as PID 1 can fail to start (cgroup scope on a tired WSL); a node
     # that is not Up must stop the run here, not as "unreachable" from Ansible.

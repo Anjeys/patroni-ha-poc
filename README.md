@@ -51,7 +51,7 @@ cleanly hands over the leader key, and timing that measures a switchover, which
 is a different event. An earlier version of this README claimed under ten
 seconds - that number came from a switchover.
 
-The floor is `ttl`: nothing may promote while the dead leader\'s key is still
+The floor is `ttl`: nothing may promote while the dead leader's key is still
 valid. At `ttl: 20` the drill measured 29 s; at `ttl: 10` it measures 24 s.
 Lower is not free - a leader whose writes to etcd are slow loses its own key
 and demotes itself - so `ttl: 10, loop_wait: 3, retry_timeout: 3` is a bet on a

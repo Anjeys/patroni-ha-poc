@@ -1,33 +1,24 @@
 ---
-- name: Install PostgreSQL and Patroni
-  apt:
+- name: PostgreSQL, Patroni and the etcd client, pinned
+  ansible.builtin.apt:
     name:
-      - postgresql
-      - patroni
-      - python3-psycopg2
+      - "postgresql-{{ postgresql_version }}={{ postgresql_package_version }}"
+      - "patroni={{ patroni_version }}"
+      - "python3-psycopg2={{ psycopg2_version }}"
+      - python3-etcd
     state: present
 
-- name: Stop and disable default PostgreSQL service
-  systemd:
-    name: postgresql
-    state: stopped
-    enabled: no
-
-- name: Remove default database cluster
-  file:
-    path: /var/lib/postgresql/14/main
-    state: absent
-
 - name: Deploy Patroni configuration
-  template:
+  ansible.builtin.template:
     src: patroni.yml.j2
     dest: /etc/patroni/config.yml
     owner: postgres
     group: postgres
+    mode: "0600"
   notify: Restart Patroni
 
 - name: Start Patroni service
-  systemd:
+  ansible.builtin.systemd:
     name: patroni
     state: started
-    enabled: yes
+    enabled: true

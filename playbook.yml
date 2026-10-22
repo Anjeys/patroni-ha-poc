@@ -1,59 +1,25 @@
 ---
 - name: Setup PostgreSQL HA Cluster
   hosts: etcd_nodes
-  become: yes
+  become: true
   roles:
+    - pgdg
+    - pgbackrest
     - etcd
     - patroni
-    - pgbackrest
 
 - name: Setup Access Layer and Backup Repo
   hosts: balancers
-  become: yes
+  become: true
   roles:
+    - pgdg
     - haproxy
     - pgbouncer
     - pgbackrest
 
-- name: Setup SSH Full Mesh for pgBackRest
-  hosts: all
-  become: yes
-  tasks:
-    - name: Ensure postgres user has .ssh directory
-      file:
-        path: /var/lib/postgresql/.ssh
-        state: directory
-        owner: postgres
-        group: postgres
-        mode: '0700'
 
-    - name: Generate SSH key for postgres user
-      user:
-        name: postgres
-        generate_ssh_key: yes
-        ssh_key_type: rsa
-        ssh_key_file: .ssh/id_rsa
-
-    - name: Disable StrictHostKeyChecking for automated connections
-      copy:
-        dest: /var/lib/postgresql/.ssh/config
-        content: |
-          Host *
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-        owner: postgres
-        group: postgres
-        mode: '0600'
-
-    - name: Fetch public keys from all servers to Ansible control node
-      fetch:
-        src: /var/lib/postgresql/.ssh/id_rsa.pub
-        dest: /tmp/pg_ssh_keys/{{ inventory_hostname }}.pub
-        flat: yes
-
-    - name: Distribute keys to all servers
-      authorized_key:
-        user: postgres
-        state: present
-        key: "{{ lookup('file', '/tmp/pg_ssh_keys/' + item + '.pub') }}"
-      loop: "{{ groups['etcd_nodes'] + groups['balancers'] }}"
+- name: Backup repository (stanza, first full backup, schedule)
+  hosts: balancers
+  become: true
+  roles:
+    - pgbackrest_repo

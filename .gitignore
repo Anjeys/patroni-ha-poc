@@ -5,3 +5,11 @@ vault_password_file
 .ansible/
 .DS_Store
 *~
+
+# Generated per lab, never committed
+group_vars/all/secrets.yml
+.ssh/
+
+# Collections installed by ansible-galaxy (requirements.yml)
+.ansible/
+evidence/

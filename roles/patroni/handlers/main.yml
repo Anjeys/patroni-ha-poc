@@ -1,5 +1,5 @@
 ---
 - name: Restart Patroni
-  systemd:
+  ansible.builtin.systemd:
     name: patroni
     state: restarted

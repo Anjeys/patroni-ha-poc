@@ -1,5 +1,5 @@
 ---
 - name: Restart PgBouncer
-  systemd:
+  ansible.builtin.systemd:
     name: pgbouncer
     state: restarted

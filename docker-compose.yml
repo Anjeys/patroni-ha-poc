@@ -1,63 +1,67 @@
-version: '3.8'
-
+---
 services:
   node1:
-    build: .
+    build:
+      context: .
+      args:
+        SSH_PUBKEY: ${SSH_PUBKEY:?run scripts/lab.sh up}
     container_name: node1
     hostname: node1
-    privileged: true
-    cgroup: host
+    privileged: true   # systemd as PID 1; needs no cgroup bind on cgroup v2 (probed)
     tmpfs:
       - /run
       - /run/lock
       - /tmp
     volumes:
       - pgdata1:/var/lib/postgresql
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       patroni_net:
         ipv4_address: 172.18.0.2
 
   node2:
-    build: .
+    build:
+      context: .
+      args:
+        SSH_PUBKEY: ${SSH_PUBKEY:?run scripts/lab.sh up}
     container_name: node2
     hostname: node2
     privileged: true
-    cgroup: host
     tmpfs:
       - /run
       - /run/lock
       - /tmp
     volumes:
       - pgdata2:/var/lib/postgresql
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       patroni_net:
         ipv4_address: 172.18.0.3
 
   node3:
-    build: .
+    build:
+      context: .
+      args:
+        SSH_PUBKEY: ${SSH_PUBKEY:?run scripts/lab.sh up}
     container_name: node3
     hostname: node3
     privileged: true
-    cgroup: host
     tmpfs:
       - /run
       - /run/lock
       - /tmp
     volumes:
       - pgdata3:/var/lib/postgresql
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       patroni_net:
         ipv4_address: 172.18.0.4
 
   balancer:
-    build: .
+    build:
+      context: .
+      args:
+        SSH_PUBKEY: ${SSH_PUBKEY:?run scripts/lab.sh up}
     container_name: balancer
     hostname: balancer
     privileged: true
-    cgroup: host
     ports:
       - "5000:5000"
       - "5001:5001"
@@ -68,7 +72,6 @@ services:
       - /tmp
     volumes:
       - backup_data:/var/lib/pgbackrest
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       patroni_net:
         ipv4_address: 172.18.0.5

@@ -5,18 +5,45 @@ name: "{{ inventory_hostname }}"
 restapi:
   listen: "0.0.0.0:8008"
   connect_address: "{{ ansible_host }}:8008"
+  # Health endpoints stay open for HAProxy; failover, restart and reload do not.
+  authentication:
+    username: patroni
+    password: "{{ patroni_restapi_password }}"
 
-etcd:
-  host: "127.0.0.1:2379"
+# v3 API against every member: a dead local etcd must not demote a healthy
+# leader, and v2 is gone from etcd >= 3.6.
+etcd3:
+  hosts:
+{% for host in groups['etcd_nodes'] %}
+    - "{{ hostvars[host]['ansible_host'] }}:2379"
+{% endfor %}
 
 bootstrap:
   dcs:
-    ttl: 30
-    loop_wait: 10
-    retry_timeout: 10
-    maximum_lag_on_failover: 1048576
+    # A dead leader is noticed within ttl, and nothing can promote before the
+    # key expires: ttl is the floor of any failover time. Patroni enforces
+    # ttl >= loop_wait + 2 * retry_timeout, so all three move together. The
+    # drill measured 29s at ttl 20; this is what the same drill costs at 10.
+    # Lower is not free: a leader whose DCS writes are slow loses the key and
+    # demotes itself, so the floor is a bet on the network, not a free win.
+    ttl: 10
+    loop_wait: 3
+    retry_timeout: 3
+    # Zero data loss means a commit is on a replica before it is acknowledged,
+    # and a failover never picks a replica that is behind.
+    synchronous_mode: true
+    synchronous_mode_strict: false
+    maximum_lag_on_failover: 0
     postgresql:
       use_pg_rewind: true
+      # Cluster-wide parameters live in the DCS: patronictl edit-config changes
+      # them everywhere at once and replicas cannot drift from the leader.
+      parameters:
+        max_connections: 100
+        wal_level: replica
+        archive_mode: "on"
+        archive_command: "pgbackrest --stanza=main archive-push %p"
+        password_encryption: scram-sha-256
   initdb:
     - encoding: UTF8
     - data-checksums
@@ -24,24 +51,20 @@ bootstrap:
 postgresql:
   listen: "0.0.0.0:5432"
   connect_address: "{{ ansible_host }}:5432"
-  data_dir: "/var/lib/postgresql/14/main"
-  bin_dir: "/usr/lib/postgresql/14/bin"
+  data_dir: "{{ pg_data_dir }}"
+  bin_dir: "{{ pg_bin_dir }}"
   pgpass: "/tmp/pgpass"
   authentication:
     replication:
       username: replicator
-      password: rep_password
+      password: "{{ pg_replication_password }}"
     superuser:
       username: postgres
-      password: super_password
+      password: "{{ pg_superuser_password }}"
   pg_hba:
-    - local   all             all                                     trust
-    - host    all             all             127.0.0.1/32            trust
-    - host    all             all             172.18.0.0/16           md5
-    - host    replication     replicator      172.18.0.0/16           md5
+    - local   all             all                                     peer
+    - host    all             all             127.0.0.1/32            scram-sha-256
+    - host    all             all             172.18.0.0/16           scram-sha-256
+    - host    replication     replicator      172.18.0.0/16           scram-sha-256
   parameters:
-    max_connections: 100
-    wal_level: replica
-    archive_mode: "on"
-    archive_command: 'pgbackrest --stanza=main archive-push %p'
     unix_socket_directories: "/tmp"

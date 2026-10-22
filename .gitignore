@@ -12,3 +12,4 @@ group_vars/all/secrets.yml
 
 # Collections installed by ansible-galaxy (requirements.yml)
 .ansible/
+evidence/

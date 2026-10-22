@@ -3,5 +3,5 @@ repo1-host={{ hostvars['balancer']['ansible_host'] }}
 repo1-host-user=postgres
 
 [main]
-pg1-path=/var/lib/postgresql/14/main
+pg1-path={{ pg_data_dir }}
 pg1-socket-path=/tmp

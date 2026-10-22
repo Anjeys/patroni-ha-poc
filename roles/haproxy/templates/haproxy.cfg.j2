@@ -12,7 +12,7 @@ defaults
 
 listen master
     bind *:5000
-    option httpchk OPTIONS /master
+    option httpchk OPTIONS /primary
     http-check expect status 200
     default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
 

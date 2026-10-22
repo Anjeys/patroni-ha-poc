@@ -6,8 +6,13 @@ restapi:
   listen: "0.0.0.0:8008"
   connect_address: "{{ ansible_host }}:8008"
 
-etcd:
-  host: "127.0.0.1:2379"
+# v3 API against every member: a dead local etcd must not demote a healthy
+# leader, and v2 is gone from etcd >= 3.6.
+etcd3:
+  hosts:
+{% for host in groups['etcd_nodes'] %}
+    - "{{ hostvars[host]['ansible_host'] }}:2379"
+{% endfor %}
 
 bootstrap:
   dcs:
@@ -17,6 +22,14 @@ bootstrap:
     maximum_lag_on_failover: 1048576
     postgresql:
       use_pg_rewind: true
+      # Cluster-wide parameters live in the DCS: patronictl edit-config changes
+      # them everywhere at once and replicas cannot drift from the leader.
+      parameters:
+        max_connections: 100
+        wal_level: replica
+        archive_mode: "on"
+        archive_command: "pgbackrest --stanza=main archive-push %p"
+        password_encryption: scram-sha-256
   initdb:
     - encoding: UTF8
     - data-checksums
@@ -24,8 +37,8 @@ bootstrap:
 postgresql:
   listen: "0.0.0.0:5432"
   connect_address: "{{ ansible_host }}:5432"
-  data_dir: "/var/lib/postgresql/14/main"
-  bin_dir: "/usr/lib/postgresql/14/bin"
+  data_dir: "{{ pg_data_dir }}"
+  bin_dir: "{{ pg_bin_dir }}"
   pgpass: "/tmp/pgpass"
   authentication:
     replication:
@@ -37,11 +50,7 @@ postgresql:
   pg_hba:
     - local   all             all                                     trust
     - host    all             all             127.0.0.1/32            trust
-    - host    all             all             172.18.0.0/16           md5
-    - host    replication     replicator      172.18.0.0/16           md5
+    - host    all             all             172.18.0.0/16           scram-sha-256
+    - host    replication     replicator      172.18.0.0/16           scram-sha-256
   parameters:
-    max_connections: 100
-    wal_level: replica
-    archive_mode: "on"
-    archive_command: 'pgbackrest --stanza=main archive-push %p'
     unix_socket_directories: "/tmp"

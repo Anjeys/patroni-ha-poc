@@ -1,7 +1,7 @@
 ---
 - name: Install pgBackRest package
   apt:
-    name: pgbackrest
+    name: "pgbackrest={{ pgbackrest_version }}"
     state: present
 
 - name: Create directory for backup repository

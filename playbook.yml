@@ -3,6 +3,7 @@
   hosts: etcd_nodes
   become: yes
   roles:
+    - pgdg
     - etcd
     - patroni
     - pgbackrest
@@ -11,6 +12,7 @@
   hosts: balancers
   become: yes
   roles:
+    - pgdg
     - haproxy
     - pgbouncer
     - pgbackrest

@@ -1,18 +1,60 @@
 ---
-- name: Install etcd package
-  apt:
+- name: etcd system user
+  user:
     name: etcd
-    state: present
-    update_cache: yes
+    system: yes
+    shell: /usr/sbin/nologin
+    home: /var/lib/etcd
+    create_home: no
 
-- name: Deploy etcd configuration
+- name: Download the pinned etcd release
+  get_url:
+    url: "https://github.com/etcd-io/etcd/releases/download/v{{ etcd_version }}/etcd-v{{ etcd_version }}-linux-amd64.tar.gz"
+    dest: "/usr/local/src/etcd-v{{ etcd_version }}-linux-amd64.tar.gz"
+    checksum: "sha256:{{ etcd_sha256 }}"
+    mode: "0644"
+
+- name: Unpack
+  unarchive:
+    src: "/usr/local/src/etcd-v{{ etcd_version }}-linux-amd64.tar.gz"
+    dest: /usr/local/src
+    remote_src: yes
+    creates: "/usr/local/src/etcd-v{{ etcd_version }}-linux-amd64/etcd"
+
+- name: Install binaries
+  copy:
+    src: "/usr/local/src/etcd-v{{ etcd_version }}-linux-amd64/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    remote_src: yes
+    mode: "0755"
+  loop: [etcd, etcdctl, etcdutl]
+  notify: Restart etcd
+
+- name: Data directory
+  file:
+    path: /var/lib/etcd
+    state: directory
+    owner: etcd
+    group: etcd
+    mode: "0700"
+
+- name: Configuration
   template:
     src: etcd.j2
     dest: /etc/default/etcd
+    mode: "0644"
   notify: Restart etcd
 
-- name: Start etcd service
+- name: Service unit
+  template:
+    src: etcd.service.j2
+    dest: /etc/systemd/system/etcd.service
+    mode: "0644"
+  notify: Restart etcd
+
+- name: Start etcd
   systemd:
     name: etcd
     state: started
     enabled: yes
+    daemon_reload: yes

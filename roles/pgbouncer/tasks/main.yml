@@ -1,7 +1,10 @@
 ---
 - name: Install PgBouncer package
   apt:
-    name: pgbouncer
+    name:
+      - "pgbouncer={{ pgbouncer_version }}"
+      # psql on the access node: the drills and the smoke talk to 6432 from here.
+      - "postgresql-client-{{ postgresql_version }}={{ postgresql_package_version }}"
     state: present
 
 - name: Deploy userlist.txt
@@ -18,13 +21,6 @@
     src: pgbouncer.ini.j2
     dest: /etc/pgbouncer/pgbouncer.ini
   notify: Restart PgBouncer
-
-- name: Allow PgBouncer startup in LSB script
-  lineinfile:
-    path: /etc/default/pgbouncer
-    regexp: '^START='
-    line: 'START=1'
-    state: present
 
 - name: Start PgBouncer service
   systemd:

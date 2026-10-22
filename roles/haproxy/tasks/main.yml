@@ -1,7 +1,7 @@
 ---
 - name: Install HAProxy package
   apt:
-    name: haproxy
+    name: "haproxy={{ haproxy_version }}"
     state: present
 
 - name: Deploy HAProxy configuration

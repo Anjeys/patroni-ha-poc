@@ -27,7 +27,8 @@ node_ip() { # node_ip <container>
 }
 
 secret() { # secret <key>
-  python3 -c "import sys,yaml;print(yaml.safe_load(open('group_vars/all/secrets.yml'))['$1'])"
+  ansible-vault view group_vars/all/secrets.yml \
+    | python3 -c "import sys,yaml;print(yaml.safe_load(sys.stdin)['$1'])"
 }
 
 PGPW="$(secret pg_superuser_password)"

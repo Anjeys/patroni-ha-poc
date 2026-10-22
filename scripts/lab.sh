@@ -18,13 +18,26 @@ keys() {
   chmod 0600 .ssh/*_ed25519
 }
 
+# Secrets are generated once and stored vault-encrypted; the vault password is
+# the only clear-text secret on the control node and is gitignored too.
+SECRETS=group_vars/all/secrets.yml
+SECRET_KEYS=(pg_superuser_password pg_replication_password patroni_restapi_password pgbouncer_auth_password)
+
+# ansible.cfg names the vault password file, so vault commands need no flag
+# (a flag on top of it creates two "default" vault ids and encrypt refuses).
 secrets() {
-  [[ -f group_vars/all/secrets.yml ]] && return 0
-  local a b c
-  a="$(openssl rand -base64 24)"; b="$(openssl rand -base64 24)"; c="$(openssl rand -base64 24)"
   umask 077
-  printf -- '---\npg_superuser_password: "%s"\npg_replication_password: "%s"\npatroni_restapi_password: "%s"\n' "$a" "$b" "$c" > group_vars/all/secrets.yml
-  echo ">>> generated group_vars/all/secrets.yml (gitignored)"
+  [[ -f .vault_pass ]] || openssl rand -hex 32 > .vault_pass
+  [[ -f "$SECRETS" ]] || printf -- '---\n' > "$SECRETS"
+  local plain key
+  if head -c 14 "$SECRETS" | grep -q ANSIBLE_VAULT; then plain="$(ansible-vault view "$SECRETS")"; else plain="$(cat "$SECRETS")"; fi
+  # Every key the roles need, generated once; a key added later is appended.
+  for key in "${SECRET_KEYS[@]}"; do
+    grep -q "^${key}:" <<<"$plain" || plain+=$'\n'"${key}: \"$(openssl rand -base64 24)\""
+  done
+  printf '%s\n' "$plain" > "$SECRETS"
+  ansible-vault encrypt "$SECRETS" >/dev/null
+  echo ">>> $SECRETS: ${#SECRET_KEYS[@]} keys, vault-encrypted (gitignored)"
 }
 
 case "${1:-}" in

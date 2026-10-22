@@ -22,4 +22,5 @@
   hosts: balancers
   become: true
   roles:
+    - pgbouncer_auth
     - pgbackrest_repo

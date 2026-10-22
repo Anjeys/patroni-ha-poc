@@ -1,0 +1,35 @@
+---
+# The role PgBouncer authenticates as, and the one function it may call. Runs
+# once the cluster answers on 5000; idempotent through DO/OR REPLACE.
+- name: Lookup role and function for auth_query
+  ansible.builtin.command:
+    argv:
+      - psql
+      - -h
+      - 127.0.0.1
+      - -p
+      - "5000"
+      - -U
+      - postgres
+      - -v
+      - ON_ERROR_STOP=1
+      - -Atc
+      - |
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pgbouncer') THEN
+            CREATE ROLE pgbouncer LOGIN;
+          END IF;
+        END $$;
+        ALTER ROLE pgbouncer PASSWORD '{{ pgbouncer_auth_password }}';
+        CREATE SCHEMA IF NOT EXISTS pgbouncer AUTHORIZATION pgbouncer;
+        CREATE OR REPLACE FUNCTION pgbouncer.user_lookup(uname text)
+          RETURNS TABLE (usename name, passwd text)
+          LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS
+          'SELECT usename, passwd FROM pg_shadow WHERE usename = $1';
+        REVOKE ALL ON FUNCTION pgbouncer.user_lookup(text) FROM public;
+        GRANT EXECUTE ON FUNCTION pgbouncer.user_lookup(text) TO pgbouncer;
+  environment:
+    PGPASSWORD: "{{ pg_superuser_password }}"
+  register: pgbouncer_auth_sql
+  changed_when: false
+  no_log: true

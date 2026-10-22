@@ -85,6 +85,14 @@
   become_user: postgres
   when: pgbackrest_repo_stanza.backup | default([]) | length == 0
 
+# A backup nobody has read is a file. verify reads every file in the
+# repository against its stored checksum.
+- name: Verify the repository
+  ansible.builtin.command: pgbackrest --stanza=main verify
+  become: true
+  become_user: postgres
+  changed_when: false
+
 - name: The cron daemon must be running for a schedule to mean anything
   ansible.builtin.systemd:
     name: cron
@@ -101,3 +109,12 @@
   loop:
     - {name: pgbackrest full, type: full, minute: "0", hour: "2"}
     - {name: pgbackrest incr, type: incr, minute: "15", hour: "*"}
+
+- name: Weekly repository verification
+  ansible.builtin.cron:
+    name: pgbackrest verify
+    user: postgres
+    minute: "0"
+    hour: "4"
+    weekday: "0"
+    job: "pgbackrest --stanza=main verify"

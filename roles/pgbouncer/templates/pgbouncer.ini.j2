@@ -6,11 +6,23 @@ listen_addr = 0.0.0.0
 listen_port = 6432
 auth_type = scram-sha-256
 auth_file = /etc/pgbouncer/userlist.txt
+; Every other user is looked up in the database: PgBouncer logs in as the
+; pgbouncer role and calls a SECURITY DEFINER function that returns the
+; scram verifier. New users need no edit here (roles/pgbouncer_auth).
+auth_user = pgbouncer
+auth_query = SELECT usename, passwd FROM pgbouncer.user_lookup($1)
 admin_users = postgres
 logfile = /var/log/postgresql/pgbouncer.log
 pidfile = /var/run/postgresql/pgbouncer.pid
 user = postgres
 pool_mode = transaction
+; Arithmetic: one user, one database -> at most default_pool_size + reserve_pool_size
+; = 25 server connections to HAProxy, which allows 100 per backend, against a
+; PostgreSQL max_connections of 100 that also holds 3 replication slots, 3
+; superuser_reserved_connections and Patroni itself. 500 clients fit because
+; transaction pooling holds a server connection only for a transaction.
 max_client_conn = 500
 default_pool_size = 20
 reserve_pool_size = 5
+; transaction pooling: DISCARD ALL per transaction is a wasted round trip
+server_reset_query =

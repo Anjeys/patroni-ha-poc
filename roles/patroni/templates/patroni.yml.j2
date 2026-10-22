@@ -5,6 +5,10 @@ name: "{{ inventory_hostname }}"
 restapi:
   listen: "0.0.0.0:8008"
   connect_address: "{{ ansible_host }}:8008"
+  # Health endpoints stay open for HAProxy; failover, restart and reload do not.
+  authentication:
+    username: patroni
+    password: "{{ patroni_restapi_password }}"
 
 # v3 API against every member: a dead local etcd must not demote a healthy
 # leader, and v2 is gone from etcd >= 3.6.
@@ -43,13 +47,13 @@ postgresql:
   authentication:
     replication:
       username: replicator
-      password: rep_password
+      password: "{{ pg_replication_password }}"
     superuser:
       username: postgres
-      password: super_password
+      password: "{{ pg_superuser_password }}"
   pg_hba:
-    - local   all             all                                     trust
-    - host    all             all             127.0.0.1/32            trust
+    - local   all             all                                     peer
+    - host    all             all             127.0.0.1/32            scram-sha-256
     - host    all             all             172.18.0.0/16           scram-sha-256
     - host    replication     replicator      172.18.0.0/16           scram-sha-256
   parameters:

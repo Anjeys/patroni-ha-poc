@@ -3,19 +3,19 @@
 # trusts it. postgresql-common is configured not to create a cluster: Patroni
 # owns initdb, so there is nothing to delete afterwards.
 - name: Tools for the repository key
-  apt:
+  ansible.builtin.apt:
     name: [gnupg, ca-certificates]
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Key directory
-  file:
+  ansible.builtin.file:
     path: /usr/share/postgresql-common/pgdg
     state: directory
     mode: "0755"
 
 - name: Download the PGDG signing key
-  get_url:
+  ansible.builtin.get_url:
     url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
     dest: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
     mode: "0644"
@@ -26,24 +26,26 @@
   changed_when: false
 
 - name: The key must be the one PostgreSQL publishes
-  assert:
+  ansible.builtin.assert:
     that: "'fpr:::::::::' ~ pgdg_key_fingerprint ~ ':' in pgdg_key.stdout"
     fail_msg: "PGDG key fingerprint mismatch; refusing to trust the repository"
 
 - name: PGDG repository
-  apt_repository:
-    repo: "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt {{ ansible_facts.distribution_release }}-pgdg main"
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc]
+      https://apt.postgresql.org/pub/repos/apt {{ ansible_facts.distribution_release }}-pgdg main
     filename: pgdg
     state: present
-    update_cache: yes
+    update_cache: true
 
-- name: postgresql-common (owns createcluster.conf)
-  apt:
+- name: Install postgresql-common (owns createcluster.conf)
+  ansible.builtin.apt:
     name: postgresql-common
     state: present
 
 - name: Patroni owns initdb; the package must not create a cluster
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/postgresql-common/createcluster.conf
     regexp: '^#?create_main_cluster'
     line: "create_main_cluster = false"

@@ -1,37 +1,37 @@
 ---
-- name: etcd system user
-  user:
+- name: Create the etcd system user
+  ansible.builtin.user:
     name: etcd
-    system: yes
+    system: true
     shell: /usr/sbin/nologin
     home: /var/lib/etcd
-    create_home: no
+    create_home: false
 
 - name: Download the pinned etcd release
-  get_url:
+  ansible.builtin.get_url:
     url: "https://github.com/etcd-io/etcd/releases/download/v{{ etcd_version }}/etcd-v{{ etcd_version }}-linux-amd64.tar.gz"
     dest: "/usr/local/src/etcd-v{{ etcd_version }}-linux-amd64.tar.gz"
     checksum: "sha256:{{ etcd_sha256 }}"
     mode: "0644"
 
 - name: Unpack
-  unarchive:
+  ansible.builtin.unarchive:
     src: "/usr/local/src/etcd-v{{ etcd_version }}-linux-amd64.tar.gz"
     dest: /usr/local/src
-    remote_src: yes
+    remote_src: true
     creates: "/usr/local/src/etcd-v{{ etcd_version }}-linux-amd64/etcd"
 
 - name: Install binaries
-  copy:
+  ansible.builtin.copy:
     src: "/usr/local/src/etcd-v{{ etcd_version }}-linux-amd64/{{ item }}"
     dest: "/usr/local/bin/{{ item }}"
-    remote_src: yes
+    remote_src: true
     mode: "0755"
   loop: [etcd, etcdctl, etcdutl]
   notify: Restart etcd
 
 - name: Data directory
-  file:
+  ansible.builtin.file:
     path: /var/lib/etcd
     state: directory
     owner: etcd
@@ -39,22 +39,22 @@
     mode: "0700"
 
 - name: Configuration
-  template:
+  ansible.builtin.template:
     src: etcd.j2
     dest: /etc/default/etcd
     mode: "0644"
   notify: Restart etcd
 
 - name: Service unit
-  template:
+  ansible.builtin.template:
     src: etcd.service.j2
     dest: /etc/systemd/system/etcd.service
     mode: "0644"
   notify: Restart etcd
 
 - name: Start etcd
-  systemd:
+  ansible.builtin.systemd:
     name: etcd
     state: started
-    enabled: yes
-    daemon_reload: yes
+    enabled: true
+    daemon_reload: true

@@ -1,6 +1,6 @@
 ---
 - name: Install PgBouncer package
-  apt:
+  ansible.builtin.apt:
     name:
       - "pgbouncer={{ pgbouncer_version }}"
       # psql on the access node: the drills and the smoke talk to 6432 from here.
@@ -8,7 +8,7 @@
     state: present
 
 - name: Deploy userlist.txt
-  template:
+  ansible.builtin.template:
     src: userlist.txt.j2
     dest: /etc/pgbouncer/userlist.txt
     owner: postgres
@@ -17,13 +17,13 @@
   notify: Restart PgBouncer
 
 - name: Deploy pgbouncer.ini configuration
-  template:
+  ansible.builtin.template:
     src: pgbouncer.ini.j2
     dest: /etc/pgbouncer/pgbouncer.ini
   notify: Restart PgBouncer
 
 - name: Start PgBouncer service
-  systemd:
+  ansible.builtin.systemd:
     name: pgbouncer
     state: started
-    enabled: yes
+    enabled: true

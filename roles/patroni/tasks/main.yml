@@ -1,6 +1,6 @@
 ---
 - name: PostgreSQL, Patroni and the etcd client, pinned
-  apt:
+  ansible.builtin.apt:
     name:
       - "postgresql-{{ postgresql_version }}={{ postgresql_package_version }}"
       - "patroni={{ patroni_version }}"
@@ -9,7 +9,7 @@
     state: present
 
 - name: Deploy Patroni configuration
-  template:
+  ansible.builtin.template:
     src: patroni.yml.j2
     dest: /etc/patroni/config.yml
     owner: postgres
@@ -18,7 +18,7 @@
   notify: Restart Patroni
 
 - name: Start Patroni service
-  systemd:
+  ansible.builtin.systemd:
     name: patroni
     state: started
-    enabled: yes
+    enabled: true

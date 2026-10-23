@@ -31,5 +31,15 @@
     dest: /etc/pgbackrest.conf
   when: inventory_hostname in groups['etcd_nodes']
 
+# Tasks that run as postgres need a module tmp it owns; creating it here keeps
+# the first become_user from printing a warning about doing it on the fly.
+- name: Ansible tmp for the postgres user
+  ansible.builtin.file:
+    path: /tmp/.ansible-postgres
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0700"
+
 - name: SSH mesh so archive-push reaches the repository from the first WAL
   ansible.builtin.include_tasks: mesh.yml

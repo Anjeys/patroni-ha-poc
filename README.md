@@ -39,6 +39,8 @@ asset with a SHA-256 the playbook verifies.
 
 Drill output lands in `evidence/` as JSON: the method, the intervals, the
 marker, and whether it survived.
+The same drills run weekly in CI (`drills` workflow); each run uploads its
+`evidence/` as an artifact.
 
 ## Failover, measured
 
@@ -117,8 +119,10 @@ do not.
 **Numbers come from one laptop.** 24 s is what this network and these disks
 give; the shape of the measurement transfers, the value does not.
 
-**No CI.** The drills run by hand. Running them on every push needs a runner
-that can host systemd containers.
+**Drills run weekly, not on every push.** `.github/workflows/drills.yml`
+builds the cluster on a GitHub-hosted runner and runs all three drills;
+evidence is attached to the run. Ten minutes of systemd containers per run
+is a weekly cost, not a per-commit one; lint runs on every push.
 
 ## Decisions
 

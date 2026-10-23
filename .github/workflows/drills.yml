@@ -1,0 +1,71 @@
+---
+# The cluster is built on the runner and every drill runs against it. systemd
+# as PID 1 needs --privileged, which GitHub-hosted runners allow; nothing else
+# is special. Weekly, so a drift in a pinned package or in Patroni's behaviour
+# shows up as a red run with evidence attached, not as a surprise on a laptop.
+name: drills
+
+"on":
+  workflow_dispatch:
+  schedule:
+    - cron: "23 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drills
+  cancel-in-progress: false
+
+jobs:
+  drills:
+    name: build the cluster, run every drill
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Tools
+        run: |
+          set -euo pipefail
+          pip install -q ansible-core
+          ansible-galaxy collection install -q -r requirements.yml
+          # The lab network must not collide with anything the runner already has.
+          if docker network ls --format '{{.Name}}' | xargs -r -n1 docker network inspect --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' | grep -q '^172\.18\.'; then
+            echo "::error::172.18.0.0/16 is already in use on this runner"; exit 1
+          fi
+
+      - name: Up, then prove a second run changes nothing
+        run: |
+          set -euo pipefail
+          scripts/lab.sh up
+          scripts/lab.sh check
+
+      - name: Cluster state before the drills
+        run: |
+          docker exec node1 patronictl -c /etc/patroni/config.yml list
+          docker exec -u postgres backup pgbackrest --stanza=main info
+
+      - name: Drill - access layer
+        run: scripts/drill.sh access
+
+      - name: Drill - failover
+        run: scripts/drill.sh failover
+
+      - name: Drill - point-in-time recovery
+        run: scripts/drill.sh pitr
+
+      - name: Cluster state after the drills
+        if: always()
+        run: docker exec node1 patronictl -c /etc/patroni/config.yml list || true
+
+      - name: Evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: drill-evidence-${{ github.run_id }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 90

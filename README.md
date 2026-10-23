@@ -103,7 +103,7 @@ Check the cluster:
 
     docker exec node1 patronictl -c /etc/patroni/config.yml list
     docker exec -u postgres backup pgbackrest --stanza=main info
-    psql -h 172.18.0.100 -p 6432 -U postgres     # the address applications use
+    psql -h 172.18.0.100 -p 6432 -U postgres     # the VIP; the octet is in .lab_net if 172.18 was taken
 
 ## What is not proved here
 

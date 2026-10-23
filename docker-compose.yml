@@ -1,5 +1,6 @@
 ---
-# Clients reach the access layer on the virtual address 172.18.0.100, which
+# LAB_NET picks the second octet (default 18): scripts/lab.sh moves it when the
+# subnet is taken. Clients reach the access layer on 172.<LAB_NET>.0.100, which
 # keepalived moves between balancer and balancer2. Backups live on their own
 # host so that losing a balancer never touches the repository. privileged:
 # systemd as PID 1; needs no cgroup bind on cgroup v2 (probed).
@@ -17,7 +18,7 @@ services:
       - pgdata1:/var/lib/postgresql
     networks:
       patroni_net:
-        ipv4_address: 172.18.0.2
+        ipv4_address: 172.${LAB_NET:-18}.0.2
 
   node2:
     build:
@@ -32,7 +33,7 @@ services:
       - pgdata2:/var/lib/postgresql
     networks:
       patroni_net:
-        ipv4_address: 172.18.0.3
+        ipv4_address: 172.${LAB_NET:-18}.0.3
 
   node3:
     build:
@@ -47,7 +48,7 @@ services:
       - pgdata3:/var/lib/postgresql
     networks:
       patroni_net:
-        ipv4_address: 172.18.0.4
+        ipv4_address: 172.${LAB_NET:-18}.0.4
 
   balancer:
     build:
@@ -60,7 +61,7 @@ services:
     tmpfs: [/run, /run/lock, /tmp]
     networks:
       patroni_net:
-        ipv4_address: 172.18.0.5
+        ipv4_address: 172.${LAB_NET:-18}.0.5
 
   balancer2:
     build:
@@ -73,7 +74,7 @@ services:
     tmpfs: [/run, /run/lock, /tmp]
     networks:
       patroni_net:
-        ipv4_address: 172.18.0.6
+        ipv4_address: 172.${LAB_NET:-18}.0.6
 
   backup:
     build:
@@ -88,14 +89,14 @@ services:
       - backup_data:/var/lib/pgbackrest
     networks:
       patroni_net:
-        ipv4_address: 172.18.0.7
+        ipv4_address: 172.${LAB_NET:-18}.0.7
 
 networks:
   patroni_net:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.18.0.0/16
+        - subnet: 172.${LAB_NET:-18}.0.0/16
 
 volumes:
   pgdata1:

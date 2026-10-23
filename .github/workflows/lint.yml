@@ -38,8 +38,10 @@ jobs:
       # inventory names hosts this syntax check needs to resolve.
       # ansible.cfg names .vault_pass; no encrypted file is in the repository,
       # so any value lets the parser proceed.
-      - name: Vault password placeholder
-        run: echo ci > .vault_pass
+      - name: Vault password placeholder and a rendered inventory
+        run: |
+          echo ci > .vault_pass
+          sed 's/@NET@/18/g' inventory.ini.tpl > inventory.ini
 
       - name: Syntax
         run: ansible-playbook playbook.yml --syntax-check

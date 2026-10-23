@@ -7,7 +7,22 @@
 set -Eeuo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-# compose refuses to interpolate without it, even for down/ps
+# The lab subnet is 172.<LAB_NET>.0.0/16. A runner or a laptop may already use
+# 172.18 (Docker hands bridge networks out from 172.17 upwards), so the octet
+# is chosen once, written to .lab_net, and rendered into the inventory.
+pick_net() {
+  if [[ -f .lab_net ]]; then LAB_NET="$(cat .lab_net)"; return; fi
+  local used n
+  used="$(docker network ls -q | xargs -r docker network inspect --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null | grep -oE '^172\.[0-9]+' | sort -u)"
+  for n in 18 19 20 21 22 23 24 25 26 27 28 29 30 31; do
+    grep -qx "172.$n" <<<"$used" || { LAB_NET="$n"; break; }
+  done
+  [[ -n "${LAB_NET:-}" ]] || { echo "ERROR: no free 172.x/16 between 18 and 31" >&2; exit 1; }
+  printf '%s\n' "$LAB_NET" > .lab_net
+}
+pick_net; export LAB_NET
+sed "s/@NET@/$LAB_NET/g" inventory.ini.tpl > inventory.ini
+
 SSH_PUBKEY="$(cat .ssh/lab_ed25519.pub 2>/dev/null || echo none)"
 export SSH_PUBKEY
 
@@ -51,7 +66,7 @@ case "${1:-}" in
     sleep 3
     down="$(docker compose ps --format '{{.Name}} {{.State}}' | grep -v ' running$' || true)"
     [[ -z "$down" ]] || { printf 'ERROR: not running:\n%s\n' "$down" >&2; exit 1; }
-    for _ in $(seq 1 30); do timeout 2 bash -c 'echo >/dev/tcp/172.18.0.5/22' 2>/dev/null && break; sleep 2; done
+    for _ in $(seq 1 30); do timeout 2 bash -c "echo >/dev/tcp/172.$LAB_NET.0.5/22" 2>/dev/null && break; sleep 2; done
     ansible-playbook playbook.yml
     echo ">>> lab is up"
     ;;

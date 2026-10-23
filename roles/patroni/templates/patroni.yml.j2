@@ -64,7 +64,7 @@ postgresql:
   pg_hba:
     - local   all             all                                     peer
     - host    all             all             127.0.0.1/32            scram-sha-256
-    - host    all             all             172.18.0.0/16           scram-sha-256
-    - host    replication     replicator      172.18.0.0/16           scram-sha-256
+    - host    all             all             172.{{ lab_net }}.0.0/16           scram-sha-256
+    - host    replication     replicator      172.{{ lab_net }}.0.0/16           scram-sha-256
   parameters:
     unix_socket_directories: "/tmp"

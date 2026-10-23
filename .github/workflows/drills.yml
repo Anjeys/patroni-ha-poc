@@ -36,12 +36,6 @@ jobs:
           set -euo pipefail
           pip install -q ansible-core
           ansible-galaxy collection install -q -r requirements.yml
-          # The lab network must not collide with anything the runner already has.
-          subnets="$(docker network ls -q | xargs -r docker network inspect \
-            --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}')"
-          if grep -q '^172[.]18[.]' <<<"$subnets"; then
-            echo "::error::172.18.0.0/16 is already in use on this runner"; exit 1
-          fi
 
       - name: Up, then prove a second run changes nothing
         run: |

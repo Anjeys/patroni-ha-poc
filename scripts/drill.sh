@@ -14,7 +14,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 NODES=(node1 node2 node3)
 BALANCERS=(balancer balancer2)
 REPO=backup           # never killed by a drill; has psql and the repository
-VIP="$(awk -F'"' '/^pg_access_vip/{print $2}' group_vars/all/versions.yml)"
+LAB_NET="$(cat .lab_net 2>/dev/null || echo 18)"
+VIP="172.${LAB_NET}.0.100"
 SCOPE=patroni-cluster
 APP_PORT=6432          # PgBouncer on the VIP, which is how an application reaches the cluster
 PATRONI=(patronictl -c /etc/patroni/config.yml)
@@ -70,7 +71,7 @@ except Exception:
   return 1
 }
 
-evidence_file() { printf 'evidence/%s-%s.json' "$1" "$(date -u +%Y%m%dT%H%M%SZ)"; }
+evidence_file() { mkdir -p evidence; printf 'evidence/%s-%s.json' "$1" "$(date -u +%Y%m%dT%H%M%SZ)"; }
 
 # --- failover ---------------------------------------------------------------
 

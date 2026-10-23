@@ -16,3 +16,7 @@ evidence/
 
 # vault password of the lab
 .vault_pass
+
+# chosen lab subnet octet; inventory.ini is rendered from inventory.ini.tpl
+.lab_net
+inventory.ini

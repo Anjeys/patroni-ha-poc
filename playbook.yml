@@ -1,5 +1,14 @@
 ---
-- name: Setup PostgreSQL HA Cluster
+# Order: the repository host exists before Patroni writes its first WAL; the
+# access layer before anything connects through it; the post-cluster play last.
+- name: Backup repository host
+  hosts: backup
+  become: true
+  roles:
+    - pgdg
+    - pgbackrest
+
+- name: Database nodes
   hosts: etcd_nodes
   become: true
   roles:
@@ -8,18 +17,17 @@
     - etcd
     - patroni
 
-- name: Setup Access Layer and Backup Repo
+- name: Access layer (two nodes behind one virtual address)
   hosts: balancers
   become: true
   roles:
     - pgdg
     - haproxy
     - pgbouncer
-    - pgbackrest
+    - keepalived
 
-
-- name: Backup repository (stanza, first full backup, schedule)
-  hosts: balancers
+- name: Once the cluster answers (auth_query role, stanza, first backup, schedule)
+  hosts: backup
   become: true
   roles:
     - pgbouncer_auth

@@ -1,6 +1,6 @@
 # ADR-0003: one access node, and what that costs
 
-- Status: accepted
+- Status: superseded by ADR-0004
 - Date: 2026-10-22
 
 ## Context

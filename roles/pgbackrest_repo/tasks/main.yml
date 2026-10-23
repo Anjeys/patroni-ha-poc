@@ -4,7 +4,7 @@
 # stanza is checked against the live system-id and recreated when it differs.
 - name: Wait for a primary behind the load balancer
   ansible.builtin.command: >-
-    psql -h 127.0.0.1 -p 5000 -U postgres -Atc "select pg_is_in_recovery()"
+    psql -h {{ pg_access_vip }} -p 5000 -U postgres -Atc "select pg_is_in_recovery()"
   environment:
     PGPASSWORD: "{{ pg_superuser_password }}"
   register: pgbackrest_repo_probe
@@ -28,10 +28,10 @@
          if (pgbackrest_repo_info.rc == 0 and (pgbackrest_repo_info.stdout | from_json | length) > 0)
          else {} }}
 
-# Through HAProxy: 5000 always lands on the primary, whichever node that is.
+# Through the VIP and HAProxy: 5000 always lands on the primary.
 - name: Live system identifier
   ansible.builtin.command: >-
-    psql -h 127.0.0.1 -p 5000 -U postgres -Atc
+    psql -h {{ pg_access_vip }} -p 5000 -U postgres -Atc
     "select system_identifier from pg_control_system()"
   environment:
     PGPASSWORD: "{{ pg_superuser_password }}"

@@ -1,4 +1,8 @@
 ---
+# Clients reach the access layer on the virtual address 172.18.0.100, which
+# keepalived moves between balancer and balancer2. Backups live on their own
+# host so that losing a balancer never touches the repository. privileged:
+# systemd as PID 1; needs no cgroup bind on cgroup v2 (probed).
 services:
   node1:
     build:
@@ -7,11 +11,8 @@ services:
         SSH_PUBKEY: ${SSH_PUBKEY:?run scripts/lab.sh up}
     container_name: node1
     hostname: node1
-    privileged: true   # systemd as PID 1; needs no cgroup bind on cgroup v2 (probed)
-    tmpfs:
-      - /run
-      - /run/lock
-      - /tmp
+    privileged: true
+    tmpfs: [/run, /run/lock, /tmp]
     volumes:
       - pgdata1:/var/lib/postgresql
     networks:
@@ -26,10 +27,7 @@ services:
     container_name: node2
     hostname: node2
     privileged: true
-    tmpfs:
-      - /run
-      - /run/lock
-      - /tmp
+    tmpfs: [/run, /run/lock, /tmp]
     volumes:
       - pgdata2:/var/lib/postgresql
     networks:
@@ -44,10 +42,7 @@ services:
     container_name: node3
     hostname: node3
     privileged: true
-    tmpfs:
-      - /run
-      - /run/lock
-      - /tmp
+    tmpfs: [/run, /run/lock, /tmp]
     volumes:
       - pgdata3:/var/lib/postgresql
     networks:
@@ -62,19 +57,38 @@ services:
     container_name: balancer
     hostname: balancer
     privileged: true
-    ports:
-      - "5000:5000"
-      - "5001:5001"
-      - "6432:6432"
-    tmpfs:
-      - /run
-      - /run/lock
-      - /tmp
+    tmpfs: [/run, /run/lock, /tmp]
+    networks:
+      patroni_net:
+        ipv4_address: 172.18.0.5
+
+  balancer2:
+    build:
+      context: .
+      args:
+        SSH_PUBKEY: ${SSH_PUBKEY:?run scripts/lab.sh up}
+    container_name: balancer2
+    hostname: balancer2
+    privileged: true
+    tmpfs: [/run, /run/lock, /tmp]
+    networks:
+      patroni_net:
+        ipv4_address: 172.18.0.6
+
+  backup:
+    build:
+      context: .
+      args:
+        SSH_PUBKEY: ${SSH_PUBKEY:?run scripts/lab.sh up}
+    container_name: backup
+    hostname: backup
+    privileged: true
+    tmpfs: [/run, /run/lock, /tmp]
     volumes:
       - backup_data:/var/lib/pgbackrest
     networks:
       patroni_net:
-        ipv4_address: 172.18.0.5
+        ipv4_address: 172.18.0.7
 
 networks:
   patroni_net:

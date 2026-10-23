@@ -11,13 +11,19 @@
     owner: postgres
     group: postgres
     mode: '0750'
-  when: inventory_hostname in groups['balancers']
+  when: inventory_hostname in groups['backup']
 
 - name: Deploy configuration for Repository
   ansible.builtin.template:
     src: pgbackrest-repo.conf.j2
     dest: /etc/pgbackrest.conf
-  when: inventory_hostname in groups['balancers']
+  when: inventory_hostname in groups['backup']
+
+- name: Install psql on the repository host (stanza checks and drills talk to the VIP)
+  ansible.builtin.apt:
+    name: "postgresql-client-{{ postgresql_version }}={{ postgresql_package_version }}"
+    state: present
+  when: inventory_hostname in groups['backup']
 
 - name: Deploy configuration for Databases
   ansible.builtin.template:

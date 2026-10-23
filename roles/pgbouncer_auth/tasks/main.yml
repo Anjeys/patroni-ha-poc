@@ -6,7 +6,7 @@
     argv:
       - psql
       - -h
-      - 127.0.0.1
+      - "{{ pg_access_vip }}"
       - -p
       - "5000"
       - -U

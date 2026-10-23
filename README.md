@@ -17,6 +17,7 @@ table, then check that the last committed row is still there.
 | etcd | 3.7.2 | consensus; the leader key lives here |
 | pgBackRest | 2.59.3 | WAL archive, backups, point-in-time recovery |
 | HAProxy | 2.8.16 | routes 5000 to the primary, 5001 to replicas |
+| keepalived | 2.2.8 | one virtual address over two access nodes |
 | PgBouncer | 1.26.1 | transaction pooling on 6432 |
 | Ansible | 2.17+ | deployment; `scripts/lab.sh` wraps it |
 
@@ -29,7 +30,8 @@ asset with a SHA-256 the playbook verifies.
 
 | Claim | How it is proved | Result |
 |---|---|---|
-| A killed leader is replaced without losing a committed row | `scripts/drill.sh failover` | new leader in 24 s, writes accepted in 24 s, marker intact |
+| A killed leader is replaced without losing a committed row | `scripts/drill.sh failover` | new leader in 23-24 s, writes accepted in 24-38 s, marker intact |
+| A killed access node is replaced behind the same address | `scripts/drill.sh access` | VIP moved in 4 s, writes accepted in 4 s, marker intact; the database cluster is not touched |
 | A dropped table can be recovered to the second before it was dropped | `scripts/drill.sh pitr` | marker restored, cluster back under Patroni, both replicas streaming |
 | A commit is on a replica before it is acknowledged | `synchronous_mode: true`, `maximum_lag_on_failover: 0`; the failover drill reads the marker from the promoted node | passes |
 | WAL reaches the repository continuously | `pgbackrest --stanza=main check`, `pg_stat_archiver` | `failed_count = 0` |
@@ -85,6 +87,7 @@ costs.
     scripts/lab.sh up        # keys, secrets, containers, playbook
     scripts/lab.sh check     # run the playbook again; fails if anything changed
     scripts/drill.sh failover
+    scripts/drill.sh access
     scripts/drill.sh pitr
     scripts/lab.sh down      # stop, keep the volumes
     scripts/lab.sh reset     # stop and drop the volumes
@@ -97,16 +100,15 @@ and `secrets.yml.example` shows the shape. On real hosts the file is
 Check the cluster:
 
     docker exec node1 patronictl -c /etc/patroni/config.yml list
-    docker exec -u postgres balancer pgbackrest --stanza=main info
+    docker exec -u postgres backup pgbackrest --stanza=main info
+    psql -h 172.18.0.100 -p 6432 -U postgres     # the address applications use
 
 ## What is not proved here
 
-**The access layer is a single point of failure.** HAProxy, PgBouncer and the
-backup repository all live on one container. Three database nodes survive a
-node loss; the thing in front of them does not. On real infrastructure this is
-a VIP with keepalived, or the client connects to all three directly with
-`host=node1,node2,node3 target_session_attrs=read-write` and skips the proxy
-for failover entirely. See ADR-0003.
+**The backup repository is one host.** Losing it loses the archive until it
+is restored. On real infrastructure the repository is object storage; a second
+directory on a second node would not be the same thing. See ADR-0004, which
+also says what changes across two data centres.
 
 **The containers are privileged.** systemd as PID 1 needs it here. Real hosts
 do not.
@@ -121,4 +123,5 @@ that can host systemd containers.
 
 - [ADR-0001](docs/adr/0001-etcd-from-upstream.md) - etcd from upstream, not from Ubuntu
 - [ADR-0002](docs/adr/0002-recovery-outside-patroni.md) - PITR finishes before Patroni is involved
-- [ADR-0003](docs/adr/0003-single-access-node.md) - one access node, and what that costs
+- [ADR-0003](docs/adr/0003-single-access-node.md) - one access node, and what that costs (superseded)
+- [ADR-0004](docs/adr/0004-vip-and-backup-host.md) - two access nodes behind a VIP; the repository on its own host

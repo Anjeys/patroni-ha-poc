@@ -20,6 +20,31 @@ available on a diagram only, and the same container held the backups.
   host by design; replicating it is what object storage is for on real
   infrastructure (`repo1-type=s3`), not a second directory on a second node.
 
+## The repository in production: object storage, not a second host
+
+`pgbackrest-repo.conf.j2` carries a commented `repo2-type=s3` block. On AWS
+it is uncommented and the bucket is built the way the audit bucket is built
+in the sibling platform repository (`modules/cloudtrail`, `modules/tfstate`):
+
+- **versioning** and a lifecycle rule that expires noncurrent versions, so a
+  bad backup run is one version back and the bucket does not grow forever;
+- **SSE-KMS** with a rotating customer-managed key, or `repo2-cipher-type`
+  when the storage offers nothing better;
+- **Object Lock** in compliance mode for the retention window, or at least a
+  bucket policy that denies `s3:DeleteObjectVersion`: a backup an attacker
+  with the database credentials can delete is not a backup;
+- **access through the hosts' IAM role** (`repo2-s3-key-type=auto`), never a
+  key in a config file; the policy allows `PutObject`, `GetObject`,
+  `ListBucket` and `DeleteObject` on this stanza's prefix only;
+- **cross-region replication** to a second bucket, or a `repo3` in the other
+  region, which is the archive's answer to losing a site.
+
+pgBackRest writes to every configured repository on each backup and
+archive-push, so `repo1` on `backup` keeps serving fast local restores while
+`repo2` is the copy that survives the host. None of this runs here: a MinIO
+container would prove the S3 API and nothing above, and would itself be a
+single point of failure.
+
 ## What changes with two data centres
 
 This lab is one site. Across two the shape is: a Patroni standby cluster in

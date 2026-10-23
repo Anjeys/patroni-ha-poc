@@ -1,5 +1,5 @@
 [global]
-repo1-host={{ hostvars[groups['backup'][0]]['ansible_host'] }}
+repo1-host={{ hostvars[groups['backup_hosts'][0]]['ansible_host'] }}
 repo1-host-user=postgres
 log-level-console=info
 

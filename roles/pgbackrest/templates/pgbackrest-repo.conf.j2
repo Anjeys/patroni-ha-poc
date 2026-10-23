@@ -3,6 +3,24 @@ repo1-path=/var/lib/pgbackrest
 repo1-retention-full=2
 repo1-retention-archive=2
 process-max=2
+
+# Production: a second repository in object storage. Every backup and WAL
+# segment is written to both; a lost host or a lost site keeps the archive.
+# Uncomment on AWS; nothing in this lab provides S3. The bucket itself is
+# versioned, encrypted with KMS, has Object Lock or a bucket policy that
+# denies DeleteObjectVersion, and a lifecycle rule for noncurrent versions;
+# the hosts reach it through an IAM role, so no key is in this file
+# (repo2-s3-key-type=auto). See ADR-0004.
+#repo2-type=s3
+#repo2-path=/pgbackrest
+#repo2-s3-bucket=company-pg-backups
+#repo2-s3-region=eu-north-1
+#repo2-s3-endpoint=s3.eu-north-1.amazonaws.com
+#repo2-s3-key-type=auto
+#repo2-retention-full=4
+#repo2-retention-archive=4
+#repo2-bundle=y
+#repo2-block=y
 log-level-console=info
 log-level-file=detail
 

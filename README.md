@@ -106,9 +106,10 @@ Check the cluster:
 ## What is not proved here
 
 **The backup repository is one host.** Losing it loses the archive until it
-is restored. On real infrastructure the repository is object storage; a second
-directory on a second node would not be the same thing. See ADR-0004, which
-also says what changes across two data centres.
+is restored. On real infrastructure a second repository lives in object
+storage: the `repo2-type=s3` block in the repository config is ready to be
+uncommented, and ADR-0004 says how that bucket is built (versioning, KMS,
+Object Lock, IAM role, replication) and what changes across two data centres.
 
 **The containers are privileged.** systemd as PID 1 needs it here. Real hosts
 do not.

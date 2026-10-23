@@ -2,7 +2,7 @@
 # Order: the repository host exists before Patroni writes its first WAL; the
 # access layer before anything connects through it; the post-cluster play last.
 - name: Backup repository host
-  hosts: backup
+  hosts: backup_hosts
   become: true
   roles:
     - pgdg
@@ -27,7 +27,7 @@
     - keepalived
 
 - name: Once the cluster answers (auth_query role, stanza, first backup, schedule)
-  hosts: backup
+  hosts: backup_hosts
   become: true
   roles:
     - pgbouncer_auth

@@ -71,7 +71,7 @@ except Exception:
   return 1
 }
 
-evidence_file() { printf 'evidence/%s-%s.json' "$1" "$(date -u +%Y%m%dT%H%M%SZ)"; }
+evidence_file() { mkdir -p evidence; printf 'evidence/%s-%s.json' "$1" "$(date -u +%Y%m%dT%H%M%SZ)"; }
 
 # --- failover ---------------------------------------------------------------
 

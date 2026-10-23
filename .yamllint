@@ -7,3 +7,4 @@ rules:
 ignore: |
   .ansible/
   .ssh/
+  group_vars/all/secrets.yml

@@ -36,6 +36,11 @@ jobs:
 
       # A playbook that cannot be parsed is a playbook that cannot run, and the
       # inventory names hosts this syntax check needs to resolve.
+      # ansible.cfg names .vault_pass; no encrypted file is in the repository,
+      # so any value lets the parser proceed.
+      - name: Vault password placeholder
+        run: echo ci > .vault_pass
+
       - name: Syntax
         run: ansible-playbook playbook.yml --syntax-check
 

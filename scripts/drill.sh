@@ -3,6 +3,7 @@
 #
 #   scripts/drill.sh failover   kill the leader, time the recovery, check the data
 #   scripts/drill.sh pitr       lose a table, restore to the second before it
+#   scripts/drill.sh access     kill the balancer holding the VIP, time the takeover
 #
 # Both write a marker first and verify it afterwards: a cluster that comes back
 # without the last committed row has not recovered, it has restarted.
@@ -11,9 +12,11 @@ set -Eeuo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 NODES=(node1 node2 node3)
-REPO=balancer
+BALANCERS=(balancer balancer2)
+REPO=backup           # never killed by a drill; has psql and the repository
+VIP="$(awk -F'"' '/^pg_access_vip/{print $2}' group_vars/all/versions.yml)"
 SCOPE=patroni-cluster
-APP_PORT=6432          # PgBouncer, which is how an application reaches the cluster
+APP_PORT=6432          # PgBouncer on the VIP, which is how an application reaches the cluster
 PATRONI=(patronictl -c /etc/patroni/config.yml)
 
 log()  { printf '\033[1;34m>>> %s\033[0m\n' "$*"; }
@@ -27,7 +30,8 @@ node_ip() { # node_ip <container>
 }
 
 secret() { # secret <key>
-  python3 -c "import sys,yaml;print(yaml.safe_load(open('group_vars/all/secrets.yml'))['$1'])"
+  ansible-vault view group_vars/all/secrets.yml \
+    | python3 -c "import sys,yaml;print(yaml.safe_load(sys.stdin)['$1'])"
 }
 
 PGPW="$(secret pg_superuser_password)"
@@ -36,7 +40,15 @@ PGPW="$(secret pg_superuser_password)"
 # application takes, and the only one whose downtime is worth measuring.
 app_sql() { # app_sql <sql>
   docker exec -e PGPASSWORD="$PGPW" "$REPO" \
-    psql -h 127.0.0.1 -p "$APP_PORT" -U postgres -d postgres -Atc "$1" 2>/dev/null
+    psql -h "$VIP" -p "$APP_PORT" -U postgres -d postgres -Atc "$1" 2>/dev/null
+}
+
+vip_holder() {
+  local b
+  for b in "${BALANCERS[@]}"; do
+    docker exec "$b" ip -4 -o addr show eth0 2>/dev/null | grep -q "$VIP/" && { echo "$b"; return 0; }
+  done
+  return 1
 }
 
 node_sql() { # node_sql <node> <sql>
@@ -135,7 +147,7 @@ json.dump({
     "old_leader": old, "new_leader": new,
     "seconds_to_new_leader": int(dcs),
     "seconds_to_first_write": int(app),
-    "write_path": "pgbouncer:6432 -> haproxy:5000 -> primary",
+    "write_path": "vip:6432 (pgbouncer) -> haproxy:5000 -> primary",
     "marker": marker, "marker_survived": True,
     "old_leader_rejoined": rejoined == "1",
     "dcs": {k: v for k, v in (
@@ -310,8 +322,68 @@ PY
   warn "replicas rebuild in the background; patronictl list shows when they are streaming"
 }
 
+# --- access -------------------------------------------------------------------
+
+cmd_access() {
+  local holder other marker t0 vip_s app_s rows out
+  holder="$(vip_holder)" || die "no balancer holds $VIP"
+  for other in "${BALANCERS[@]}"; do [[ "$other" != "$holder" ]] && break; done
+  log "$VIP is on $holder"
+
+  app_sql "create table if not exists drill(id serial primary key, note text, at timestamptz default now())" >/dev/null
+  marker="access-$(date -u +%s)-$RANDOM"
+  app_sql "insert into drill(note) values ('$marker')" >/dev/null
+  [[ "$(app_sql "select count(*) from drill where note = '$marker'")" == "1" ]] || die "marker not committed"
+  log "marker committed through $VIP:$APP_PORT: $marker"
+
+  log "killing $holder"
+  t0=$SECONDS
+  docker kill -s KILL "$holder" >/dev/null
+
+  vip_s=""
+  while (( SECONDS - t0 < 60 )); do
+    [[ "$(vip_holder 2>/dev/null)" == "$other" ]] && { vip_s=$((SECONDS - t0)); break; }
+    sleep 1
+  done
+  [[ -n "$vip_s" ]] || die "$VIP did not move to $other within 60s"
+  log "$VIP on $other after ${vip_s}s"
+
+  app_s=""
+  while (( SECONDS - t0 < 60 )); do
+    app_sql "insert into drill(note) values ('$marker-after')" >/dev/null && { app_s=$((SECONDS - t0)); break; }
+    sleep 1
+  done
+  [[ -n "$app_s" ]] || die "no write through $VIP within 60s"
+  log "writes accepted after ${app_s}s"
+
+  rows="$(app_sql "select count(*) from drill where note = '$marker'")"
+  [[ "$rows" == "1" ]] || die "marker lost across the takeover (found $rows)"
+
+  docker start "$holder" >/dev/null
+  log "restarted $holder (it preempts the address back once its HAProxy is up)"
+
+  out="$(evidence_file access)"
+  python3 - "$out" "$holder" "$other" "$vip_s" "$app_s" "$marker" <<'PY2'
+import json, sys
+from datetime import datetime, timezone
+path, killed, took, vip, app, marker = sys.argv[1:]
+json.dump({
+    "schema": "patroni.drill.access.v1",
+    "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    "method": "docker kill -s KILL on the balancer holding the VIP",
+    "killed": killed, "took_over": took,
+    "seconds_to_vip_move": int(vip), "seconds_to_first_write": int(app),
+    "marker": marker, "marker_survived": True,
+    "database_cluster_touched": False,
+}, open(path, "w"), indent=2)
+print(open(path).read())
+PY2
+  log "evidence: $out"
+}
+
 case "${1:-}" in
   failover) cmd_failover ;;
   pitr)     cmd_pitr ;;
-  *) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  access)   cmd_access ;;
+  *) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

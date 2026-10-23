@@ -9,6 +9,10 @@ name: drills
   workflow_dispatch:
   schedule:
     - cron: "23 3 * * 1"
+  # A change to the workflow itself proves itself before it is merged;
+  # ordinary pull requests do not pay for ten minutes of containers.
+  pull_request:
+    paths: [.github/workflows/drills.yml]
 
 permissions:
   contents: read
@@ -33,7 +37,9 @@ jobs:
           pip install -q ansible-core
           ansible-galaxy collection install -q -r requirements.yml
           # The lab network must not collide with anything the runner already has.
-          if docker network ls --format '{{.Name}}' | xargs -r -n1 docker network inspect --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' | grep -q '^172\.18\.'; then
+          subnets="$(docker network ls -q | xargs -r docker network inspect \
+            --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}')"
+          if grep -q '^172[.]18[.]' <<<"$subnets"; then
             echo "::error::172.18.0.0/16 is already in use on this runner"; exit 1
           fi
 

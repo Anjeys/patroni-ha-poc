@@ -103,6 +103,10 @@ cmd_failover() {
   # leader key, and that measures a switchover, not a failure.
   log "killing $old"
   t0=$SECONDS
+  # Kernel log lines carry seconds since boot; the kill is timestamped on the
+  # same clock so the fence is measured where it happened, not where the
+  # drill first looked for it.
+  local kill_uptime; kill_uptime="$(cut -d' ' -f1 /proc/uptime)"
   docker kill -s KILL "$old" >/dev/null
 
   # First interval: the cluster agrees on a new leader.
@@ -119,7 +123,12 @@ cmd_failover() {
     local seen _
     for _ in $(seq 1 20); do
       seen="$(docker exec "$new" dmesg 2>/dev/null | grep -c 'softdog: Triggered' || true)"
-      (( ${seen:-0} > wd_before )) && { wd_fired=$((SECONDS - t0)); break; }
+      if (( ${seen:-0} > wd_before )); then
+        local ts
+        ts="$(docker exec "$new" dmesg 2>/dev/null | grep 'softdog: Triggered' | tail -1 | grep -oE '^\[ *[0-9.]+' | tr -d '[ ')"
+        wd_fired="$(python3 -c "print(max(0, round(float('$ts') - float('$kill_uptime'))))")"
+        break
+      fi
       sleep 1
     done
     [[ -n "$wd_fired" ]] \

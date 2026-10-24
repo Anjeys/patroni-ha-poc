@@ -37,7 +37,7 @@ asset with a SHA-256 the playbook verifies.
 | A commit is on a replica before it is acknowledged | `synchronous_mode: true`, `maximum_lag_on_failover: 0`; the failover drill reads the marker from the promoted node | passes |
 | WAL reaches the repository continuously | `pgbackrest --stanza=main check`, `pg_stat_archiver` | `failed_count = 0` |
 | Running the playbook twice changes nothing | `scripts/lab.sh check` | `changed=0` |
-| A killed leader is fenced by the kernel watchdog, and the new leader arms it | `scripts/drill.sh failover`, watchdog section of the evidence | not proved on this kernel: WSL builds softdog without `soft_noboot`, so `lab.sh` refuses the device and the evidence records `mode: off` with the reason. The CI runner reports what its kernel allows |
+| A killed leader is fenced by the kernel watchdog, and the new leader arms it | `scripts/drill.sh failover`, watchdog section of the evidence | `softdog: Triggered` in the kernel log seconds after the kill; `/dev/watchdog` held by the new leader (`held_by_new_leader: true`) |
 | PostgreSQL refuses a connection that is not TLS | `psql "sslmode=disable"` against 5000 | `no pg_hba.conf entry`; replication and the pooler connect with `ssl = t` |
 | Every monitoring target is up, every rule loaded, nothing firing | `scripts/lab.sh status` | passes |
 
@@ -121,14 +121,13 @@ Object Lock, IAM role, replication) and what changes across two data centres.
 **The containers are privileged.** systemd as PID 1 needs it here. Real hosts
 do not.
 
-**The watchdog is configured and, on this kernel, not exercised.** Patroni
-takes `watchdog.mode: required` and the device is passed through only when the
-host offers softdog with `soft_noboot=1`, because a watchdog that fires reboots
-the host that owns it, and here that host is the laptop or the CI runner. The
-WSL kernel builds softdog without that parameter, so `lab.sh` declines, Patroni
-runs with the watchdog off, and the failover evidence says `mode: off` and why.
-A kernel that allows the suppression turns the fence into a log line the drill
-counts; a real host leaves `soft_noboot` at 0 and the reboot is the fence.
+**The watchdog cannot reboot here.** Patroni takes `watchdog.mode: required`
+and the device is the host's softdog, passed through only when it was loaded
+with `soft_noboot=1`: a watchdog that fires reboots the host that owns it, and
+here that host is the laptop or the CI runner. The drill proves the fence by
+the kernel log line the suppressed reboot leaves behind; a real host leaves
+`soft_noboot` at 0 and the reboot is the fence. A host without softdog runs
+with the watchdog off and the evidence says so.
 
 **etcd is plain HTTP without authentication, and there is no CA.** PostgreSQL
 TLS is self-signed per node, so `sslmode=require` rather than `verify-full`.

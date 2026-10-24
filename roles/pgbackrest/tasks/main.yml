@@ -35,7 +35,7 @@
 # the first become_user from printing a warning about doing it on the fly.
 - name: Ansible tmp for the postgres user
   ansible.builtin.file:
-    path: /tmp/.ansible-postgres
+    path: /var/tmp/.ansible-postgres
     state: directory
     owner: postgres
     group: postgres

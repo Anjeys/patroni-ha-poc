@@ -13,6 +13,8 @@ need = {
     "patroni_sync_standby": 3,
     "pg_up": 3,
     "pg_stat_archiver_failed_count": 3,
+    "pg_replication_lag_seconds": 3,
+    "pg_replication_is_replica": 3,
     "haproxy_backend_status": 2,
 }
 

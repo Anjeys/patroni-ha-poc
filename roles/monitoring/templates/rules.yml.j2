@@ -1,0 +1,39 @@
+groups:
+  - name: postgresql-ha
+    rules:
+      # Each rule is tied to a claim the README makes.
+      - alert: PatroniNoLeader
+        expr: sum(patroni_primary) < 1
+        for: 30s
+        labels: {severity: critical}
+        annotations: {summary: "no node holds the leader key"}
+
+      - alert: NoSynchronousStandby
+        expr: sum(patroni_sync_standby) < 1
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "commits are acknowledged by the primary alone: zero data loss is not in force"
+
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 30s
+        labels: {severity: critical}
+        annotations: {summary: "{{ '{{ $labels.instance }}' }}: the exporter cannot reach PostgreSQL"}
+
+      - alert: ReplicaLagging
+        expr: pg_replication_lag_seconds > 10 and pg_replication_is_replica == 1
+        for: 1m
+        labels: {severity: warning}
+        annotations: {summary: "{{ '{{ $labels.instance }}' }} is more than ten seconds behind"}
+
+      - alert: WalArchiveFailing
+        expr: increase(pg_stat_archiver_failed_count[10m]) > 0
+        labels: {severity: critical}
+        annotations: {summary: "{{ '{{ $labels.instance }}' }}: archive_command is failing; PITR is losing its window"}
+
+      - alert: PrimaryBackendDown
+        expr: haproxy_backend_status{proxy="master", state="UP"} == 0
+        for: 30s
+        labels: {severity: critical}
+        annotations: {summary: "{{ '{{ $labels.instance }}' }} routes no writes anywhere"}

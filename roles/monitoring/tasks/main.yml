@@ -1,0 +1,8 @@
+---
+- name: Exporter on the database nodes
+  ansible.builtin.include_tasks: exporter.yml
+  when: inventory_hostname in groups['etcd_nodes']
+
+- name: Prometheus on the repository host
+  ansible.builtin.include_tasks: prometheus.yml
+  when: inventory_hostname in groups['backup_hosts']

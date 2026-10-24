@@ -16,6 +16,12 @@ keepalived_version: "1:2.2.8-1build2"
 # The address applications connect to; keepalived keeps it on a live balancer.
 pg_access_vip: "172.{{ lab_net }}.0.100"
 
+# Monitoring, upstream release assets by SHA-256 (sha256sums.txt of the release).
+postgres_exporter_version: "0.20.1"
+postgres_exporter_sha256: "89d4f7e7920cad48fdc3133f789556ef5253c330a9f5fdace3bdb6344c0a8b5a"
+prometheus_version: "3.15.1"
+prometheus_sha256: "6a726885328ad9efebbf36e876ce2fb6225468a71fd1e7ce3ba666d5f4d97a84"
+
 # Upstream release asset, SHA-256 from its SHA256SUMS. Ubuntu's package is 3.4.
 etcd_version: "3.7.2"
 etcd_sha256: "3a3679bc51a4ee9d30bccea1da7cd4fe62c6fc1d2ca1255068d2c53bf3026135"

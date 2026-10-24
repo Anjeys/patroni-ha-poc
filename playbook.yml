@@ -16,6 +16,7 @@
     - pgbackrest
     - etcd
     - patroni
+    - monitoring
 
 - name: Access layer (two nodes behind one virtual address)
   hosts: balancers
@@ -32,3 +33,4 @@
   roles:
     - pgbouncer_auth
     - pgbackrest_repo
+    - monitoring

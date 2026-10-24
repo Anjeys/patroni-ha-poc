@@ -1,4 +1,18 @@
 ---
+# The cluster is reachable through the VIP only once keepalived has claimed it
+# and a primary exists; without this wait the first run of a fresh lab fails
+# here on a cluster that is merely still starting.
+- name: Wait for a primary behind the virtual address
+  ansible.builtin.command: >-
+    psql -h {{ pg_access_vip }} -p 5000 -U postgres -Atc "select pg_is_in_recovery()"
+  environment:
+    PGPASSWORD: "{{ pg_superuser_password }}"
+  register: pgbouncer_auth_probe
+  until: pgbouncer_auth_probe.rc == 0 and pgbouncer_auth_probe.stdout == "f"
+  retries: 30
+  delay: 5
+  changed_when: false
+
 # The role PgBouncer authenticates as, and the one function it may call. Runs
 # once the cluster answers on 5000; idempotent through DO/OR REPLACE.
 - name: Lookup role and function for auth_query

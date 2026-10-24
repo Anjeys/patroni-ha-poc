@@ -1,0 +1,10 @@
+---
+- name: Restart postgres_exporter
+  ansible.builtin.systemd:
+    name: postgres_exporter
+    state: restarted
+
+- name: Restart prometheus
+  ansible.builtin.systemd:
+    name: prometheus
+    state: restarted

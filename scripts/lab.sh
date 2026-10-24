@@ -2,6 +2,7 @@
 # Lifecycle of the lab.
 #   scripts/lab.sh up      keys + secrets if missing, compose up --build, playbook
 #   scripts/lab.sh check   playbook again; fails if anything changed (idempotency)
+#   scripts/lab.sh status  every target up, every rule loaded, nothing firing
 #   scripts/lab.sh down    stop, keep volumes
 #   scripts/lab.sh reset   DESTRUCTIVE: stop and drop volumes
 set -Eeuo pipefail
@@ -21,7 +22,33 @@ pick_net() {
   printf '%s\n' "$LAB_NET" > .lab_net
 }
 pick_net; export LAB_NET
-sed "s/@NET@/$LAB_NET/g" inventory.ini.tpl > inventory.ini
+
+# Patroni's watchdog is a kernel device that reboots the host when the leader
+# stops feeding it. Here the host is the machine running the lab, so the device
+# is passed through only when it is softdog with soft_noboot=1: the trigger is
+# then a kernel log line a drill can read instead of a reboot.
+pick_watchdog() {
+  if [[ -f .lab_watchdog ]]; then LAB_WATCHDOG="$(cat .lab_watchdog)"; return; fi
+  LAB_WATCHDOG=0
+  local noboot identity
+  noboot="$(cat /sys/module/softdog/parameters/soft_noboot 2>/dev/null || true)"
+  identity="$(cat /sys/class/watchdog/watchdog0/identity 2>/dev/null || true)"
+  if [[ ! -c /dev/watchdog ]]; then
+    echo "WARN: no /dev/watchdog: Patroni runs unfenced and the evidence says so" >&2
+    echo "      sudo modprobe softdog soft_noboot=1 && rm -f .lab_watchdog" >&2
+  elif [[ "$identity" != "Software Watchdog" ]]; then
+    echo "WARN: /dev/watchdog is '${identity:-unknown}', not softdog: a real one would reboot this host. Watchdog off." >&2
+  elif [[ "$noboot" != "1" ]]; then
+    echo "WARN: softdog has soft_noboot=0: a fired watchdog would reboot THIS HOST. Watchdog off." >&2
+    echo "      sudo modprobe -r softdog && sudo modprobe softdog soft_noboot=1 && rm -f .lab_watchdog" >&2
+  else
+    LAB_WATCHDOG=1
+  fi
+  printf '%s\n' "$LAB_WATCHDOG" > .lab_watchdog
+}
+pick_watchdog; export LAB_WATCHDOG
+[[ "$LAB_WATCHDOG" == 1 ]] && export COMPOSE_FILE="docker-compose.yml:docker-compose.watchdog.yml"
+sed -e "s/@NET@/$LAB_NET/g" -e "s/@WATCHDOG@/$LAB_WATCHDOG/g" inventory.ini.tpl > inventory.ini
 
 SSH_PUBKEY="$(cat .ssh/lab_ed25519.pub 2>/dev/null || echo none)"
 export SSH_PUBKEY
@@ -79,7 +106,16 @@ case "${1:-}" in
     fi
     echo ">>> second run changed nothing"
     ;;
+  status)
+    # Everything the monitoring stack asserts about the running cluster.
+    prom="http://172.$LAB_NET.0.7:9090"
+    for _ in $(seq 1 24); do
+      curl -fsS --max-time 3 "$prom/-/ready" >/dev/null 2>&1 && break
+      sleep 5
+    done
+    python3 scripts/lib/status_check.py "$prom"
+    ;;
   down)  docker compose down ;;
   reset) docker compose down -v ;;
-  *) sed -n '2,6p' "$0"; exit 1 ;;
+  *) sed -n '2,7p' "$0"; exit 1 ;;
 esac

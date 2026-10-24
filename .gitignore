@@ -20,3 +20,4 @@ evidence/
 # chosen lab subnet octet; inventory.ini is rendered from inventory.ini.tpl
 .lab_net
 inventory.ini
+.lab_watchdog

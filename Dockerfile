@@ -1,5 +1,5 @@
 # A "bare-metal" node: systemd, sshd, python for Ansible. Everything else is
-# installed by the playbook, pinned in group_vars/all.yml. Access is by the
+# installed by the playbook, pinned in group_vars/all/versions.yml. Access is by the
 # control node's public key only; there is no password.
 FROM ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac
 ENV DEBIAN_FRONTEND=noninteractive

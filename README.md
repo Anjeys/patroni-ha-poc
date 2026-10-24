@@ -48,6 +48,7 @@ Drill output lands in `evidence/` as JSON: the method, the intervals, the
 marker, and whether it survived.
 The same drills run weekly in CI (`drills` workflow); each run uploads its
 `evidence/` as an artifact.
+A snapshot from CI run [40106965093](https://github.com/Anjeys/patroni-ha-poc/actions/runs/40106965093) is committed in [`docs/evidence/`](docs/evidence/).
 
 ## Failover, measured
 
@@ -146,6 +147,11 @@ routing them through Alertmanager and drawing them in Grafana is site-specific.
 
 **Numbers come from one laptop and one hosted runner.** 21-27 s is what this network and these disks
 give; the shape of the measurement transfers, the value does not.
+
+**The cluster is idle when it is measured.** The drills write one row and
+kill a node; nobody else is connected. Failover under load - connections
+held in the pool, transactions in flight - is a different measurement with
+a different number, and this lab does not take it.
 
 **Drills run weekly, not on every push.** `.github/workflows/drills.yml`
 builds the cluster on a GitHub-hosted runner and runs all three drills;

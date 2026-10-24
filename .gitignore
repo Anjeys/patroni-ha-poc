@@ -10,7 +10,7 @@ vault_password_file
 group_vars/all/secrets.yml
 .ssh/
 
-evidence/
+/evidence/
 
 
 # chosen lab subnet octet; inventory.ini is rendered from inventory.ini.tpl

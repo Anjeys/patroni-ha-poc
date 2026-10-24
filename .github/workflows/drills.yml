@@ -38,7 +38,13 @@ jobs:
           # softdog with soft_noboot=1: the watchdog proves itself in the
           # kernel log instead of rebooting the runner. A kernel without the
           # module runs the cluster unfenced, and the evidence says so.
-          sudo modprobe softdog soft_noboot=1 && echo "softdog loaded" || echo "no softdog on this kernel"
+          # modprobe on an already-loaded module is a no-op, parameters and
+          # all: the runner had softdog in with soft_noboot=0 and lab.sh
+          # rightly declined the device. Unload first, then ask for the
+          # parameter, and print what the kernel actually gave.
+          sudo modprobe -r softdog 2>/dev/null || true
+          sudo modprobe softdog soft_noboot=1 || echo "no softdog on this kernel"
+          echo "soft_noboot=$(cat /sys/module/softdog/parameters/soft_noboot 2>/dev/null || echo absent)"
 
       - name: Up, then prove a second run changes nothing
         run: |

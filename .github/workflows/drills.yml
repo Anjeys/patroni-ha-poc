@@ -35,7 +35,14 @@ jobs:
         run: |
           set -euo pipefail
           pip install -q ansible-core
-          ansible-galaxy collection install -r requirements.yml
+          # Galaxy answers 500 often enough that a green run should not depend
+          # on it being up at that minute. Three tries, then fail for real.
+          for attempt in 1 2 3; do
+            ansible-galaxy collection install -r requirements.yml && break
+            [[ "$attempt" == 3 ]] && exit 1
+            echo "galaxy failed, retrying in 15s"
+            sleep 15
+          done
           # softdog with soft_noboot=1: the watchdog proves itself in the
           # kernel log instead of rebooting the runner. A kernel without the
           # module runs the cluster unfenced, and the evidence says so.

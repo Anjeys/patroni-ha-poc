@@ -153,6 +153,12 @@ kill a node; nobody else is connected. Failover under load - connections
 held in the pool, transactions in flight - is a different measurement with
 a different number, and this lab does not take it.
 
+**Synchronous replication is not strict.** `synchronous_mode_strict: false`:
+when no replica is there to acknowledge, Patroni lets the primary commit
+alone rather than stop accepting writes, and the zero-data-loss claim holds
+only while a synchronous standby exists. The `NoSynchronousStandby` alert
+fires when it does not.
+
 **Drills run weekly, not on every push.** `.github/workflows/drills.yml`
 builds the cluster on a GitHub-hosted runner and runs all three drills;
 evidence is attached to the run. Ten minutes of systemd containers per run

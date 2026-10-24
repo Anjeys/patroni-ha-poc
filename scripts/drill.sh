@@ -65,9 +65,10 @@ leader() {
 try:
     for m in json.load(sys.stdin):
         if m.get("Role") in ("Leader", "Primary"):
-            print(m["Member"]); break
+            print(m["Member"]); sys.exit(0)
 except Exception:
-    pass' && return 0
+    pass
+sys.exit(1)' && return 0
   done
   return 1
 }

@@ -29,19 +29,6 @@ jobs:
       - name: Install
         run: pip install ansible-core ansible-lint yamllint
 
-      # The roles reference collections; without them lint reports modules that
-      # exist as if they did not.
-      - name: Collections
-        run: |
-          # Galaxy answers 500 often enough that a green run should not depend
-          # on it being up at that minute. Three tries, then fail for real.
-          for attempt in 1 2 3; do
-            ansible-galaxy collection install -r requirements.yml && break
-            [[ "$attempt" == 3 ]] && exit 1
-            echo "galaxy failed, retrying in 15s"
-            sleep 15
-          done
-
       # A playbook that cannot be parsed is a playbook that cannot run, and the
       # inventory names hosts this syntax check needs to resolve.
       # ansible.cfg names .vault_pass; no encrypted file is in the repository,

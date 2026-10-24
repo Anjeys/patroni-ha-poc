@@ -8,6 +8,56 @@
       - python3-etcd
     state: present
 
+- name: Drop-in directory for the Patroni unit
+  ansible.builtin.file:
+    path: /etc/systemd/system/patroni.service.d
+    state: directory
+    mode: "0755"
+
+# The device node is root-owned 0600 every time the container starts and
+# Patroni runs as postgres. The + prefix runs the chown with full privileges.
+- name: Patroni may open the watchdog device
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/patroni.service.d/watchdog.conf
+    content: |
+      [Service]
+      ExecStartPre=+/bin/sh -c 'test -c /dev/watchdog && chown postgres:postgres /dev/watchdog || true'
+    mode: "0644"
+  notify: Restart Patroni
+
+# One self-signed certificate per node. There is no CA, so clients get
+# encryption and not identity: sslmode=require, not verify-full (ADR-0005).
+- name: Server certificate for TLS
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - req
+      - -x509
+      - -newkey
+      - ec
+      - -pkeyopt
+      - ec_paramgen_curve:prime256v1
+      - -nodes
+      - -days
+      - "825"
+      - -subj
+      - "/CN={{ inventory_hostname }}"
+      - -keyout
+      - /etc/patroni/server.key
+      - -out
+      - /etc/patroni/server.crt
+    creates: /etc/patroni/server.crt
+
+- name: The key belongs to postgres and nobody else reads it
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: postgres
+    group: postgres
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: /etc/patroni/server.key, mode: "0600"}
+    - {path: /etc/patroni/server.crt, mode: "0644"}
+
 - name: Deploy Patroni configuration
   ansible.builtin.template:
     src: patroni.yml.j2
@@ -22,3 +72,4 @@
     name: patroni
     state: started
     enabled: true
+    daemon_reload: true

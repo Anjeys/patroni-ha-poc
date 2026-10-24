@@ -1,0 +1,78 @@
+---
+- name: Create the prometheus system user
+  ansible.builtin.user:
+    name: prometheus
+    system: true
+    shell: /usr/sbin/nologin
+    home: /var/lib/prometheus
+    create_home: false
+
+- name: Download the pinned Prometheus release
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/prometheus/prometheus/releases/download/v{{
+      prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz
+    dest: "/usr/local/src/prometheus-{{ prometheus_version }}.tar.gz"
+    checksum: "sha256:{{ prometheus_sha256 }}"
+    mode: "0644"
+
+- name: Unpack Prometheus
+  ansible.builtin.unarchive:
+    src: "/usr/local/src/prometheus-{{ prometheus_version }}.tar.gz"
+    dest: /usr/local/src
+    remote_src: true
+    creates: "/usr/local/src/prometheus-{{ prometheus_version }}.linux-amd64/prometheus"
+
+- name: Install Prometheus
+  ansible.builtin.copy:
+    src: "/usr/local/src/prometheus-{{ prometheus_version }}.linux-amd64/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    remote_src: true
+    mode: "0755"
+  loop: [prometheus, promtool]
+  notify: Restart prometheus
+
+- name: Prometheus directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: "0750"
+  loop: [/etc/prometheus, /var/lib/prometheus]
+
+# promtool validates before the file lands: a typo in a rule stops the play
+# instead of leaving Prometheus running on the last good configuration.
+- name: Scrape configuration and alerting rules
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/etc/prometheus/{{ item.dest }}"
+    owner: prometheus
+    group: prometheus
+    mode: "0640"
+    validate: "{{ item.validate }}"
+  loop:
+    # Rules first: promtool check config reads rule_files and fails on a path
+    # that is not there yet, so the configuration cannot be validated before
+    # the file it points at exists.
+    - src: rules.yml.j2
+      dest: rules.yml
+      validate: "/usr/local/bin/promtool check rules %s"
+    - src: prometheus.yml.j2
+      dest: prometheus.yml
+      validate: "/usr/local/bin/promtool check config %s"
+  notify: Restart prometheus
+
+- name: Prometheus unit
+  ansible.builtin.template:
+    src: prometheus.service.j2
+    dest: /etc/systemd/system/prometheus.service
+    mode: "0644"
+  notify: Restart prometheus
+
+- name: Start Prometheus
+  ansible.builtin.systemd:
+    name: prometheus
+    state: started
+    enabled: true
+    daemon_reload: true

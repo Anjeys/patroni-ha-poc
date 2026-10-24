@@ -19,6 +19,7 @@ table, then check that the last committed row is still there.
 | HAProxy | 2.8.16 | routes 5000 to the primary, 5001 to replicas |
 | keepalived | 2.2.8 | one virtual address over two access nodes |
 | PgBouncer | 1.26.1 | transaction pooling on 6432 |
+| postgres_exporter / Prometheus | 0.20.1 / 3.15.1 | metrics and six alerting rules on the repository host |
 | Ansible | 2.17+ | deployment; `scripts/lab.sh` wraps it |
 
 Versions are pinned to exact apt builds in `group_vars/all/versions.yml`. PGDG
@@ -36,6 +37,9 @@ asset with a SHA-256 the playbook verifies.
 | A commit is on a replica before it is acknowledged | `synchronous_mode: true`, `maximum_lag_on_failover: 0`; the failover drill reads the marker from the promoted node | passes |
 | WAL reaches the repository continuously | `pgbackrest --stanza=main check`, `pg_stat_archiver` | `failed_count = 0` |
 | Running the playbook twice changes nothing | `scripts/lab.sh check` | `changed=0` |
+| A killed leader is fenced by the kernel watchdog, and the new leader arms it | `scripts/drill.sh failover`, watchdog section of the evidence | not proved on this kernel: WSL builds softdog without `soft_noboot`, so `lab.sh` refuses the device and the evidence records `mode: off` with the reason. The CI runner reports what its kernel allows |
+| PostgreSQL refuses a connection that is not TLS | `psql "sslmode=disable"` against 5000 | `no pg_hba.conf entry`; replication and the pooler connect with `ssl = t` |
+| Every monitoring target is up, every rule loaded, nothing firing | `scripts/lab.sh status` | passes |
 
 Drill output lands in `evidence/` as JSON: the method, the intervals, the
 marker, and whether it survived.
@@ -88,6 +92,7 @@ costs.
 
     scripts/lab.sh up        # keys, secrets, containers, playbook
     scripts/lab.sh check     # run the playbook again; fails if anything changed
+    scripts/lab.sh status    # monitoring: targets, rules, series, alerts
     scripts/drill.sh failover
     scripts/drill.sh access
     scripts/drill.sh pitr
@@ -116,7 +121,23 @@ Object Lock, IAM role, replication) and what changes across two data centres.
 **The containers are privileged.** systemd as PID 1 needs it here. Real hosts
 do not.
 
-**Numbers come from one laptop.** 24 s is what this network and these disks
+**The watchdog is configured and, on this kernel, not exercised.** Patroni
+takes `watchdog.mode: required` and the device is passed through only when the
+host offers softdog with `soft_noboot=1`, because a watchdog that fires reboots
+the host that owns it, and here that host is the laptop or the CI runner. The
+WSL kernel builds softdog without that parameter, so `lab.sh` declines, Patroni
+runs with the watchdog off, and the failover evidence says `mode: off` and why.
+A kernel that allows the suppression turns the fence into a log line the drill
+counts; a real host leaves `soft_noboot` at 0 and the reboot is the fence.
+
+**etcd is plain HTTP without authentication, and there is no CA.** PostgreSQL
+TLS is self-signed per node, so `sslmode=require` rather than `verify-full`.
+Client-to-PgBouncer TLS and an etcd PKI are named in ADR-0005 as the next step.
+
+**Alerts go nowhere.** Six rules evaluate and `lab.sh status` asserts them;
+routing them through Alertmanager and drawing them in Grafana is site-specific.
+
+**Numbers come from one laptop and one hosted runner.** 24 s is what this network and these disks
 give; the shape of the measurement transfers, the value does not.
 
 **Drills run weekly, not on every push.** `.github/workflows/drills.yml`
@@ -130,3 +151,4 @@ is a weekly cost, not a per-commit one; lint runs on every push.
 - [ADR-0002](docs/adr/0002-recovery-outside-patroni.md) - PITR finishes before Patroni is involved
 - [ADR-0003](docs/adr/0003-single-access-node.md) - one access node, and what that costs (superseded)
 - [ADR-0004](docs/adr/0004-vip-and-backup-host.md) - two access nodes behind a VIP; the repository on its own host
+- [ADR-0005](docs/adr/0005-fencing-tls-monitoring.md) - watchdog fencing, TLS to PostgreSQL, monitoring with alerts

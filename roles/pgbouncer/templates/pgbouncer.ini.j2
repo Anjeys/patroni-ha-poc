@@ -16,6 +16,8 @@ logfile = /var/log/postgresql/pgbouncer.log
 pidfile = /var/run/postgresql/pgbouncer.pid
 user = postgres
 pool_mode = transaction
+; PostgreSQL accepts TLS only (hostssl); no CA, so require, not verify-full
+server_tls_sslmode = require
 ; Arithmetic: one user, one database -> at most default_pool_size + reserve_pool_size
 ; = 25 server connections to HAProxy, which allows 100 per backend, against a
 ; PostgreSQL max_connections of 100 that also holds 3 replication slots, 3

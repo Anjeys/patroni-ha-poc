@@ -10,6 +10,15 @@ defaults
     timeout server 30m
     timeout check 5s
 
+# Metrics and the stats page on 8404: the built-in exporter, no sidecar.
+frontend stats
+    bind *:8404
+    mode http
+    http-request use-service prometheus-exporter if { path /metrics }
+    stats enable
+    stats uri /stats
+    stats refresh 10s
+
 listen master
     bind *:5000
     option httpchk OPTIONS /primary

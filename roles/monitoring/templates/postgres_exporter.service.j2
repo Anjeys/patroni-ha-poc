@@ -1,0 +1,14 @@
+[Unit]
+Description=postgres_exporter {{ postgres_exporter_version }}
+After=network-online.target
+
+[Service]
+User=postgres
+Environment=DATA_SOURCE_URI=/postgres?host=/tmp&sslmode=disable
+Environment=DATA_SOURCE_USER=postgres
+ExecStart=/usr/local/bin/postgres_exporter --web.listen-address=:9187 --collector.stat_archiver
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

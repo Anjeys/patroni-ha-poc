@@ -36,12 +36,17 @@ jobs:
           set -euo pipefail
           pip install -q ansible-core
           ansible-galaxy collection install -r requirements.yml
+          # softdog with soft_noboot=1: the watchdog proves itself in the
+          # kernel log instead of rebooting the runner. A kernel without the
+          # module runs the cluster unfenced, and the evidence says so.
+          sudo modprobe softdog soft_noboot=1 && echo "softdog loaded" || echo "no softdog on this kernel"
 
       - name: Up, then prove a second run changes nothing
         run: |
           set -euo pipefail
           scripts/lab.sh up
           scripts/lab.sh check
+          scripts/lab.sh status
 
       - name: Cluster state before the drills
         run: |

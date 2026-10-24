@@ -1,0 +1,12 @@
+---
+# Added by scripts/lab.sh only when the host provides softdog loaded with
+# soft_noboot=1: a kernel watchdog reboots the host that owns it, and here that
+# host is the laptop or the CI runner. All three nodes see the one device; only
+# the leader opens it, which is the point (ADR-0005).
+services:
+  node1:
+    devices: ["/dev/watchdog:/dev/watchdog"]
+  node2:
+    devices: ["/dev/watchdog:/dev/watchdog"]
+  node3:
+    devices: ["/dev/watchdog:/dev/watchdog"]

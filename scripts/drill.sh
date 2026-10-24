@@ -15,6 +15,7 @@ NODES=(node1 node2 node3)
 BALANCERS=(balancer balancer2)
 REPO=backup           # never killed by a drill; has psql and the repository
 LAB_NET="$(cat .lab_net 2>/dev/null || echo 18)"
+LAB_WATCHDOG="$(cat .lab_watchdog 2>/dev/null || echo 0)"
 VIP="172.${LAB_NET}.0.100"
 SCOPE=patroni-cluster
 APP_PORT=6432          # PgBouncer on the VIP, which is how an application reaches the cluster
@@ -89,6 +90,15 @@ cmd_failover() {
     || die "the marker was not committed before the drill started"
   log "marker committed through port $APP_PORT: $marker"
 
+  # The watchdog fires when the leader stops feeding it. softdog with
+  # soft_noboot=1 writes a kernel line instead of rebooting, and counting those
+  # lines is the only safe way to prove a fence from inside a shared kernel.
+  local wd_before=0 wd_fired="" wd_held=""
+  if [[ "$LAB_WATCHDOG" == "1" ]]; then
+    wd_before="$(docker exec "$old" dmesg 2>/dev/null | grep -c 'softdog: Triggered' || true)"
+    wd_before="${wd_before:-0}"
+  fi
+
   # SIGKILL, not stop: a process that gets to shut down cleanly hands over the
   # leader key, and that measures a switchover, not a failure.
   log "killing $old"
@@ -104,6 +114,24 @@ cmd_failover() {
   done
   [[ -n "$dcs_s" ]] || die "no new leader within 120s"
   log "new leader $new after ${dcs_s}s"
+
+  if [[ "$LAB_WATCHDOG" == "1" ]]; then
+    local seen _
+    for _ in $(seq 1 20); do
+      seen="$(docker exec "$new" dmesg 2>/dev/null | grep -c 'softdog: Triggered' || true)"
+      (( ${seen:-0} > wd_before )) && { wd_fired=$((SECONDS - t0)); break; }
+      sleep 1
+    done
+    [[ -n "$wd_fired" ]] \
+      && log "the watchdog fired ${wd_fired}s after the kill (kernel log; reboot suppressed)" \
+      || warn "no softdog trigger in the kernel log within 20s"
+
+    # mode required means a node that cannot arm the device never leads: the
+    # new leader holding it is the half of the contract this can check.
+    wd_held="$(docker exec "$new" sh -c 'ls -l /proc/$(systemctl show -p MainPID --value patroni)/fd 2>/dev/null | grep -c watchdog' || true)"
+    [[ "${wd_held:-0}" == "1" ]] || die "watchdog mode is required but the new leader does not hold the device"
+    log "the new leader holds /dev/watchdog"
+  fi
 
   # Second interval: an application can write again. This is the number that
   # matters - a promoted leader nobody can reach is not availability.
@@ -134,30 +162,8 @@ cmd_failover() {
   (( rejoined )) || warn "$old has not rejoined yet; check patronictl list"
 
   out="$(evidence_file failover)"
-  python3 - "$out" "$old" "$new" "$dcs_s" "$app_s" "$marker" "$rejoined" <<'PY'
-import json, subprocess, sys
-from datetime import datetime, timezone
-path, old, new, dcs, app, marker, rejoined = sys.argv[1:]
-ttl = subprocess.run(
-    ["docker", "exec", new, "patronictl", "-c", "/etc/patroni/config.yml", "show-config"],
-    capture_output=True, text=True).stdout
-json.dump({
-    "schema": "patroni.drill.failover.v1",
-    "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    "method": "docker kill -s KILL",
-    "old_leader": old, "new_leader": new,
-    "seconds_to_new_leader": int(dcs),
-    "seconds_to_first_write": int(app),
-    "write_path": "vip:6432 (pgbouncer) -> haproxy:5000 -> primary",
-    "marker": marker, "marker_survived": True,
-    "old_leader_rejoined": rejoined == "1",
-    "dcs": {k: v for k, v in (
-        l.split(":", 1) for l in ttl.splitlines()
-        if l.split(":")[0].strip() in ("ttl", "loop_wait", "retry_timeout", "maximum_lag_on_failover", "synchronous_mode")
-    )},
-}, open(path, "w"), indent=2)
-print(open(path).read())
-PY
+  python3 scripts/lib/evidence_failover.py "$out" "$old" "$new" "$dcs_s" "$app_s" \
+    "$marker" "$rejoined" "$LAB_WATCHDOG" "${wd_fired:-}" "${wd_held:-}"
   log "evidence: $out"
 }
 

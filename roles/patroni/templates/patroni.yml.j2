@@ -18,6 +18,20 @@ etcd3:
     - "{{ hostvars[host]['ansible_host'] }}:2379"
 {% endfor %}
 
+# A leader that cannot reach the DCS must stop being a leader before its key
+# expires, even when Patroni itself is hung: the kernel watchdog reboots it.
+# With mode required a node that cannot arm the device never takes the lead.
+{% if lab_watchdog | int == 1 %}
+watchdog:
+  mode: required
+  device: /dev/watchdog
+  safety_margin: 3
+{% else %}
+# Off: this host has no softdog with soft_noboot=1 (scripts/lab.sh says why).
+watchdog:
+  mode: off
+{% endif %}
+
 bootstrap:
   dcs:
     # A dead leader is noticed within ttl, and nothing can promote before the
@@ -63,8 +77,13 @@ postgresql:
       password: "{{ pg_superuser_password }}"
   pg_hba:
     - local   all             all                                     peer
-    - host    all             all             127.0.0.1/32            scram-sha-256
-    - host    all             all             172.{{ lab_net }}.0.0/16           scram-sha-256
-    - host    replication     replicator      172.{{ lab_net }}.0.0/16           scram-sha-256
+    - hostssl all             all             127.0.0.1/32            scram-sha-256
+    - hostssl all             all             172.{{ lab_net }}.0.0/16           scram-sha-256
+    - hostssl replication     replicator      172.{{ lab_net }}.0.0/16           scram-sha-256
   parameters:
     unix_socket_directories: "/tmp"
+    # Every TCP connection is TLS: replication, the pooler, the drills. Local
+    # connections stay on the unix socket and are unaffected.
+    ssl: "on"
+    ssl_cert_file: /etc/patroni/server.crt
+    ssl_key_file: /etc/patroni/server.key

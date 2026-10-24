@@ -12,6 +12,7 @@ backup ansible_host=172.@NET@.0.7
 
 [all:vars]
 lab_net=@NET@
+lab_watchdog=@WATCHDOG@
 ansible_user=root
 ansible_ssh_private_key_file=.ssh/lab_ed25519
 ansible_python_interpreter=/usr/bin/python3

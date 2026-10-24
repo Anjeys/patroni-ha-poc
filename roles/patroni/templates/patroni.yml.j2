@@ -35,12 +35,12 @@ watchdog:
 bootstrap:
   dcs:
     # A dead leader is noticed within ttl, and nothing can promote before the
-    # key expires: ttl is the floor of any failover time. Patroni enforces
-    # ttl >= loop_wait + 2 * retry_timeout, so all three move together. The
-    # drill measured 29s at ttl 20; this is what the same drill costs at 10.
-    # Lower is not free: a leader whose DCS writes are slow loses the key and
-    # demotes itself, so the floor is a bet on the network, not a free win.
-    ttl: 10
+    # key expires: ttl is the floor of any failover time. 20 is the lowest
+    # value Patroni accepts; a smaller one is clamped to 20 with a warning in
+    # the log, and an earlier version of this file asked for 10 and believed
+    # it got it. The watchdog fires at ttl - safety_margin, three seconds
+    # before the key would expire, which is what makes the fence a fence.
+    ttl: 20
     loop_wait: 3
     retry_timeout: 3
     # Zero data loss means a commit is on a replica before it is acknowledged,

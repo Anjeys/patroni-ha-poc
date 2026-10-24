@@ -28,7 +28,13 @@ pick_net; export LAB_NET
 # is passed through only when it is softdog with soft_noboot=1: the trigger is
 # then a kernel log line a drill can read instead of a reboot.
 pick_watchdog() {
-  if [[ -f .lab_watchdog ]]; then LAB_WATCHDOG="$(cat .lab_watchdog)"; return; fi
+  if [[ -f .lab_watchdog ]]; then
+    LAB_WATCHDOG="$(cat .lab_watchdog)"
+    # A cached 1 outlives a reboot that did not reload softdog, and compose
+    # would then ask for a device that is not there: probe again instead.
+    if [[ "$LAB_WATCHDOG" != 1 || -c /dev/watchdog ]]; then return; fi
+    rm -f .lab_watchdog
+  fi
   LAB_WATCHDOG=0
   local identity init
   identity="$(cat /sys/class/watchdog/watchdog0/identity 2>/dev/null || true)"

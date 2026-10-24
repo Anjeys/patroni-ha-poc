@@ -1,5 +1,8 @@
 # PostgreSQL high availability: Patroni, etcd, pgBackRest
 
+[![lint](https://github.com/Anjeys/patroni-ha-poc/actions/workflows/lint.yml/badge.svg)](https://github.com/Anjeys/patroni-ha-poc/actions/workflows/lint.yml)
+[![drills](https://github.com/Anjeys/patroni-ha-poc/actions/workflows/drills.yml/badge.svg)](https://github.com/Anjeys/patroni-ha-poc/actions/workflows/drills.yml)
+
 A three-node PostgreSQL cluster with automatic failover, synchronous
 replication and point-in-time recovery, deployed by Ansible onto systemd
 containers that stand in for bare metal.
@@ -31,13 +34,13 @@ asset with a SHA-256 the playbook verifies.
 
 | Claim | How it is proved | Result |
 |---|---|---|
-| A killed leader is replaced without losing a committed row | `scripts/drill.sh failover` | new leader in 23-24 s, writes accepted in 24-38 s, marker intact |
+| A killed leader is replaced without losing a committed row | `scripts/drill.sh failover` | new leader in 21-27 s, writes accepted in 24-36 s, marker intact |
 | A killed access node is replaced behind the same address | `scripts/drill.sh access` | VIP moved in 4 s, writes accepted in 4 s, marker intact; the database cluster is not touched |
 | A dropped table can be recovered to the second before it was dropped | `scripts/drill.sh pitr` | marker restored, cluster back under Patroni, both replicas streaming |
 | A commit is on a replica before it is acknowledged | `synchronous_mode: true`, `maximum_lag_on_failover: 0`; the failover drill reads the marker from the promoted node | passes |
 | WAL reaches the repository continuously | `pgbackrest --stanza=main check`, `pg_stat_archiver` | `failed_count = 0` |
 | Running the playbook twice changes nothing | `scripts/lab.sh check` | `changed=0` |
-| A killed leader is fenced by the kernel watchdog, and the new leader arms it | `scripts/drill.sh failover`, watchdog section of the evidence | `softdog: Triggered` in the kernel log seconds after the kill; `/dev/watchdog` held by the new leader (`held_by_new_leader: true`) |
+| A killed leader is fenced by the kernel watchdog, and the new leader arms it | `scripts/drill.sh failover`, watchdog section of the evidence | fired 17 s after the kill, 3 s before the leader key would have expired (`ttl: 20`, `safety_margin: 3`); `/dev/watchdog` held by the new leader |
 | PostgreSQL refuses a connection that is not TLS | `psql "sslmode=disable"` against 5000 | `no pg_hba.conf entry`; replication and the pooler connect with `ssl = t` |
 | Every monitoring target is up, every rule loaded, nothing firing | `scripts/lab.sh status` | passes |
 
@@ -51,8 +54,8 @@ The same drills run weekly in CI (`drills` workflow); each run uploads its
 `scripts/drill.sh failover` writes a row through PgBouncer, kills the leader
 with `SIGKILL`, and times two things:
 
-- **24 s** until the cluster agrees on a new leader
-- **24 s** until an application can write again on port 6432
+- **21-27 s** until the cluster agrees on a new leader
+- **24-36 s** until an application can write again on port 6432
 
 `SIGKILL` rather than `docker stop` on purpose: a process allowed to shut down
 cleanly hands over the leader key, and timing that measures a switchover, which
@@ -60,10 +63,14 @@ is a different event. An earlier version of this README claimed under ten
 seconds - that number came from a switchover.
 
 The floor is `ttl`: nothing may promote while the dead leader's key is still
-valid. At `ttl: 20` the drill measured 29 s; at `ttl: 10` it measures 24 s.
-Lower is not free - a leader whose writes to etcd are slow loses its own key
-and demotes itself - so `ttl: 10, loop_wait: 3, retry_timeout: 3` is a bet on a
-fast, local network, and on a real one it would be raised.
+valid, and 20 s is the lowest value Patroni accepts - a smaller one is
+clamped to 20 with a warning in the log. An earlier version of this README
+reported a measurement "at `ttl: 10`"; the DCS held 20 the whole time, and
+the `dcs` section of every evidence file now records what was actually in
+force. The watchdog fires at `ttl - safety_margin` = 17 s, three seconds
+before the key would have expired: the dead leader is fenced before anyone
+can be promoted in its place, and the drill fails if that order is ever
+reversed.
 
 ## Point-in-time recovery
 
@@ -90,6 +97,7 @@ costs.
 
 ## Running it
 
+    sudo modprobe softdog soft_noboot=1   # once per boot: the failover drill proves the fence without rebooting the host
     scripts/lab.sh up        # keys, secrets, containers, playbook
     scripts/lab.sh check     # run the playbook again; fails if anything changed
     scripts/lab.sh status    # monitoring: targets, rules, series, alerts
@@ -136,7 +144,7 @@ Client-to-PgBouncer TLS and an etcd PKI are named in ADR-0005 as the next step.
 **Alerts go nowhere.** Six rules evaluate and `lab.sh status` asserts them;
 routing them through Alertmanager and drawing them in Grafana is site-specific.
 
-**Numbers come from one laptop and one hosted runner.** 24 s is what this network and these disks
+**Numbers come from one laptop and one hosted runner.** 21-27 s is what this network and these disks
 give; the shape of the measurement transfers, the value does not.
 
 **Drills run weekly, not on every push.** `.github/workflows/drills.yml`

@@ -10,12 +10,8 @@ vault_password_file
 group_vars/all/secrets.yml
 .ssh/
 
-# Collections installed by ansible-galaxy (requirements.yml)
-.ansible/
 evidence/
 
-# vault password of the lab
-.vault_pass
 
 # chosen lab subnet octet; inventory.ini is rendered from inventory.ini.tpl
 .lab_net

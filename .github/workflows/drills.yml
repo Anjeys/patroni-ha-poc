@@ -44,7 +44,8 @@ jobs:
           # parameter, and print what the kernel actually gave.
           sudo modprobe -r softdog 2>/dev/null || true
           sudo modprobe softdog soft_noboot=1 || echo "no softdog on this kernel"
-          echo "soft_noboot=$(cat /sys/module/softdog/parameters/soft_noboot 2>/dev/null || echo absent)"
+          # The parameter is not in sysfs; the kernel log is where it shows.
+          sudo dmesg | grep "softdog: initialized" | tail -1 || echo "softdog never initialized"
 
       - name: Up, then prove a second run changes nothing
         run: |

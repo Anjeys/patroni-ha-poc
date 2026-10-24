@@ -30,16 +30,22 @@ pick_net; export LAB_NET
 pick_watchdog() {
   if [[ -f .lab_watchdog ]]; then LAB_WATCHDOG="$(cat .lab_watchdog)"; return; fi
   LAB_WATCHDOG=0
-  local noboot identity
-  noboot="$(cat /sys/module/softdog/parameters/soft_noboot 2>/dev/null || true)"
+  local identity init
   identity="$(cat /sys/class/watchdog/watchdog0/identity 2>/dev/null || true)"
+  # soft_noboot is declared with sysfs permissions 0, so it never appears
+  # under /sys/module; the module announces it when it loads and that line
+  # is the only place to read it.
+  init="$( (dmesg 2>/dev/null || sudo -n dmesg 2>/dev/null) | grep 'softdog: initialized' | tail -1)"
   if [[ ! -c /dev/watchdog ]]; then
     echo "WARN: no /dev/watchdog: Patroni runs unfenced and the evidence says so" >&2
     echo "      sudo modprobe softdog soft_noboot=1 && rm -f .lab_watchdog" >&2
   elif [[ "$identity" != "Software Watchdog" ]]; then
     echo "WARN: /dev/watchdog is '${identity:-unknown}', not softdog: a real one would reboot this host. Watchdog off." >&2
-  elif [[ "$noboot" != "1" ]]; then
-    echo "WARN: softdog has soft_noboot=0: a fired watchdog would reboot THIS HOST. Watchdog off." >&2
+  elif [[ -z "$init" ]]; then
+    echo "WARN: cannot read the kernel log to confirm soft_noboot=1 (dmesg_restrict?). Watchdog off." >&2
+    echo "      sudo sysctl kernel.dmesg_restrict=0 && rm -f .lab_watchdog" >&2
+  elif [[ "$init" != *"soft_noboot=1"* ]]; then
+    echo "WARN: softdog is loaded without soft_noboot=1: a fired watchdog would reboot THIS HOST. Watchdog off." >&2
     echo "      sudo modprobe -r softdog && sudo modprobe softdog soft_noboot=1 && rm -f .lab_watchdog" >&2
   else
     LAB_WATCHDOG=1

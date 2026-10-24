@@ -13,7 +13,10 @@ required` means a node that cannot arm the device never takes the lead.
 
 In this lab the kernel is shared with the machine running it, so a watchdog
 that fires would reboot the laptop or the CI runner. `scripts/lab.sh` passes
-the device through only when it is softdog loaded with `soft_noboot=1`: the
+the device through only when it is softdog loaded with `soft_noboot=1`. The
+parameter is declared with sysfs permissions 0 and never appears under
+`/sys/module`; the module announces it in the kernel log when it loads, and
+that line is the only place to read it. The
 trigger becomes the kernel line `softdog: Triggered - Reboot ignored`, and the
 failover drill records how many seconds after the kill it appeared and that
 the new leader holds the device. On a real host `soft_noboot` is 0 and the
